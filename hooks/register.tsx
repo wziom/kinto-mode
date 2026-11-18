@@ -345,7 +345,7 @@ const GOKU_SSJ = (() => {
   return (
     GOKU_PATHS.replace(warstwa, '') +
     `<clipPath id="pas"><rect x="0" y="50" width="200" height="120"/></clipPath><g clip-path="url(#pas)">${warstwa}</g>` +
-    `<g transform="translate(62 10) scale(0.27)">${SSJ_WLOSY_PATHS}</g>`
+    `<g transform="translate(114 10) scale(-0.27 0.27)">${SSJ_WLOSY_PATHS}</g>`
   )
 })()
 
