@@ -73,7 +73,15 @@ Commands end in `-kinto` so they do not clash with other plugins' commands.
 | `/aura-kinto` | Toggles continuous flight: Goku flies all the time, not only while Claude works. |
 | `/aura-kinto styl` | Toggles a light Dragon Ball style in replies. Answers stay factual, with an occasional short reference such as a task's "power level". Off by default. |
 | `/tlo-kinto` | Shows the current backdrop. `/tlo-kinto zachod` (sunset), `zmierzch` (dusk) or `noc` (night) forces one, `/tlo-kinto auto` returns to time-of-day selection. The current session remembers the choice. |
-| `/moc-kinto` | Shows the power level. `/moc-kinto ssj` toggles a Super Saiyan test, `/moc-kinto blysk` triggers the power-up bar flash, so you can see them without waiting for 50%. |
+| `/moc-kinto` | Shows the power level and the current thresholds. |
+| `/moc-kinto progi 20 40 60 80` | Sets the four power-level thresholds (increasing, 1–100) for the current session. |
+| `/moc-kinto ssj 40` | Sets the context usage at which Super Saiyan starts, for the current session. |
+| `/moc-kinto reset` | Returns the thresholds to the plugin settings. |
+| `/moc-kinto ssj`, `/moc-kinto blysk` | Tests: toggles a Super Saiyan preview, triggers the power-up bar flash, so you can see them without waiting. |
+
+### Power thresholds
+
+The defaults are 25, 50, 75 and 90% for the four power levels and 50% for Super Saiyan. To change them permanently, edit the plugin's options (`prog1`–`prog4` and `progSsj`, shown when you install the plugin and in its settings). The commands above override them until the session ends.
 | `/shenron-kinto` | Summons Shenron without collecting balls (for testing). `/shenron-kinto stop` sends him away. |
 
 ## Event configuration

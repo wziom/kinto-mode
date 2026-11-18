@@ -105,7 +105,25 @@ const blyskMocy = ($: EngineInterface, klatka = 1): void => {
 }
 // Test: wymuszony Super Saiyan (/moc-kinto ssj), niezależnie od poziomu mocy.
 const ssjTest = atom({ plugin: 'goku', key: 'ssjTest' } as const, false)
-const SSJ_PROG = 50
+// Progi mocy (%) i próg Super Saiyana. Domyślne wartości biorą się z ustawień wtyczki
+// (userConfig), a /moc-kinto próg|ssj <n> nadpisuje je do końca sesji.
+const progiNad = atom({ plugin: 'goku', key: 'progiNad' } as const, [] as number[])
+const ssjNad = atom({ plugin: 'goku', key: 'ssjNad' } as const, 0)
+const DOMYSLNE = { p1: 25, p2: 50, p3: 75, p4: 90, ssj: 50 }
+let opcje = { ...DOMYSLNE }
+
+const liczba = (v: unknown, def: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(100, Math.round(v))) : def
+
+const progi = async ($: Parameters<typeof read>[0]) => {
+  const nad = await read($, progiNad)
+  const p = nad.length === 4 ? [...nad] : [opcje.p1, opcje.p2, opcje.p3, opcje.p4]
+  const s = await read($, ssjNad)
+
+  return { p, ssj: s > 0 ? s : opcje.ssj }
+}
+
+const poziomZ = (pct: number, p: readonly number[]): number => p.filter(x => pct >= x).length
 const isFlying = atom({ plugin: 'goku', key: 'isFlying' } as const, false)
 const isStyled = atom({ plugin: 'goku', key: 'isStyled' } as const, false)
 // Wybrane tło: 'auto' (według pory dnia), 'zachod', 'zmierzch' albo 'noc'.
@@ -492,7 +510,15 @@ const STYL =
   'Dodatkowy styl (motyw Kinto Mode): odpowiadaj normalnie i rzeczowo, ale możesz od czasu do czasu ' +
   'dodać krótkie, lekkie nawiązanie do Dragon Ball (np. o „poziomie mocy” zadania). Nie wpływa to na treść techniczną.'
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  opcje = {
+    p1: liczba(options.prog1, DOMYSLNE.p1),
+    p2: liczba(options.prog2, DOMYSLNE.p2),
+    p3: liczba(options.prog3, DOMYSLNE.p3),
+    p4: liczba(options.prog4, DOMYSLNE.p4),
+    ssj: liczba(options.progSsj, DOMYSLNE.ssj),
+  }
+
   on('session.start', async ($, e, next) => {
     const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
 
@@ -559,8 +585,44 @@ export const register: Register = on => {
       return { text: 'Błysk paska mocy.' }
     }
 
+    const cur = await progi($)
+
+    if (arg.startsWith('ssj ')) {
+      const n = Number(arg.slice(4))
+
+      if (!Number.isFinite(n) || n < 1 || n > 100) {
+        return { text: 'Podaj próg 1–100, np. /moc-kinto ssj 40.' }
+      }
+      await update($, ssjNad, () => Math.round(n))
+
+      return { text: `Super Saiyan od ${Math.round(n)}%.` }
+    }
+
+    if (arg.startsWith('progi ')) {
+      const n = arg.slice(6).split(/[\s,]+/).filter(Boolean).map(Number)
+
+      if (n.length !== 4 || n.some(x => !Number.isFinite(x) || x < 1 || x > 100) || n.some((x, i) => i > 0 && x <= n[i - 1])) {
+        return { text: 'Podaj cztery rosnące progi 1–100, np. /moc-kinto progi 20 40 60 80.' }
+      }
+      const nowe = n.map(Math.round)
+      await update($, progiNad, () => nowe)
+
+      return { text: `Progi mocy: ${nowe.join(', ')}%.` }
+    }
+
+    if (arg === 'reset') {
+      await update($, progiNad, () => [])
+      await update($, ssjNad, () => 0)
+      const d = await progi($)
+
+      return { text: `Progi przywrócone do ustawień wtyczki: ${d.p.join(', ')}%, Super Saiyan od ${d.ssj}%.` }
+    }
+
     return {
-      text: `Moc ${moc(pct)}. Super Saiyan od ${SSJ_PROG}%. Test: /moc-kinto ssj albo /moc-kinto blysk.`,
+      text:
+        `Moc ${moc(pct)}. Progi: ${cur.p.join(', ')}%. Super Saiyan od ${cur.ssj}%.\n` +
+        'Zmiana: /moc-kinto progi 20 40 60 80, /moc-kinto ssj 40, /moc-kinto reset. ' +
+        'Test: /moc-kinto ssj (bez liczby) albo /moc-kinto blysk.',
     }
   })
 
@@ -630,16 +692,17 @@ export const register: Register = on => {
       const pct = Math.round(raw)
       const prev = await read($, level)
       const prevPct = await read($, percent)
-      const lv = pct >= 90 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct >= 25 ? 1 : 0
+      const cfg = await progi($)
+      const lv = poziomZ(pct, cfg.p)
       await update($, percent, () => pct)
 
       if (lv > prev) {
         await reaguj($, 'poziom', moc(pct))
         blyskMocy($)
+      }
 
-        if (pct >= SSJ_PROG && prevPct < SSJ_PROG) {
-          $.ui.toast(`SUPER SAIYAN! Moc przekroczyła ${SSJ_PROG}%.`)
-        }
+      if (pct >= cfg.ssj && prevPct < cfg.ssj) {
+        $.ui.toast(`SUPER SAIYAN! Moc przekroczyła ${cfg.ssj}%.`)
       }
 
       if (lv !== prev) {
@@ -677,7 +740,7 @@ export const register: Register = on => {
       }
 
       if (pct !== undefined) {
-        const lv = pct >= 90 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct >= 25 ? 1 : 0
+        const lv = poziomZ(pct, (await progi($)).p)
         await update($, percent, () => pct as number)
         await update($, level, () => lv)
         $.ui.status(`Moc ${moc(pct)}`)
@@ -757,7 +820,7 @@ export const register: Register = on => {
       isFlying: await read($, isFlying),
       kule,
       teraz,
-      ssj: (await read($, percent)) >= SSJ_PROG || (await read($, ssjTest)),
+      ssj: (await read($, percent)) >= (await progi($)).ssj || (await read($, ssjTest)),
     })
 
     return <Svg source={source} alt="Góry o zachodzie, pomarańczowe niebo, Goku w locie" />
@@ -773,7 +836,8 @@ export const register: Register = on => {
     const filled = Math.max(0, Math.min(20, Math.round(pct / 5)))
     const bar = '█'.repeat(filled) + '░'.repeat(20 - filled)
     const klatka = await read($, mocBlysk)
-    const ssj = pct >= SSJ_PROG || (await read($, ssjTest))
+    const cfg = await progi($)
+    const ssj = pct >= cfg.ssj || (await read($, ssjTest))
 
     // Po awansie na wyższy poziom pasek przez kilka sekund miga i ma ramkę z iskrami,
     // żeby było widać, że dźwięk dotyczy wzrostu mocy. Bez ruchu (klatka 0) wraca do zwykłego wyglądu.
@@ -804,7 +868,7 @@ export const register: Register = on => {
       <Box>
         <Text color="#F57C00">
           Moc {moc(pct)}
-          {pct >= 90 ? ' (ponad 9000!)' : ''} {bar}
+          {pct >= cfg.p[3] ? ' (ponad 9000!)' : ''} {bar}
         </Text>
       </Box>
     )

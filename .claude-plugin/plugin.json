@@ -1,7 +1,14 @@
 {
   "name": "goku",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Pomarańczowy motyw Dragon Ball dla Claude: jasny i ciemny, tło z górami, Goku na Kinto-un, poziom mocy z kontekstu, smocze kule i Shenron.",
   "license": "MIT",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "prog1": { "type": "number", "title": "Próg mocy 1 (%)", "description": "Pierwszy poziom mocy (dźwięk, toast, błysk paska).", "default": 25, "min": 1, "max": 100 },
+    "prog2": { "type": "number", "title": "Próg mocy 2 (%)", "description": "Drugi poziom mocy.", "default": 50, "min": 1, "max": 100 },
+    "prog3": { "type": "number", "title": "Próg mocy 3 (%)", "description": "Trzeci poziom mocy.", "default": 75, "min": 1, "max": 100 },
+    "prog4": { "type": "number", "title": "Próg mocy 4 (%)", "description": "Czwarty poziom mocy; od niego pasek dopisuje „ponad 9000!”.", "default": 90, "min": 1, "max": 100 },
+    "progSsj": { "type": "number", "title": "Super Saiyan od (%)", "description": "Od jakiego użycia kontekstu włącza się Super Saiyan (złoty pasek, aura, poświata).", "default": 50, "min": 1, "max": 100 }
+  }
 }
