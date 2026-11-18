@@ -533,22 +533,22 @@ export const register: Register = (on, options) => {
 
     await $.command.register({
       name: 'aura-kinto',
-      description: 'Goku: /aura-kinto = lot ciągły, /aura-kinto styl = lekki styl Dragon Ball w odpowiedziach',
+      description: 'Goku: /aura-kinto = continuous flight, /aura-kinto styl = light Dragon Ball style in replies',
     })
 
     await $.command.register({
       name: 'shenron-kinto',
-      description: 'Goku: /shenron-kinto = przywołaj Shenrona (test), /shenron-kinto stop = odeślij',
+      description: 'Goku: /shenron-kinto = summon Shenron (test), /shenron-kinto stop = send him away',
     })
 
     await $.command.register({
       name: 'moc-kinto',
-      description: 'Goku: /moc-kinto = stan mocy, /moc-kinto ssj = test Super Saiyana, /moc-kinto blysk = test błysku paska',
+      description: 'Goku: /moc-kinto = power level and thresholds; progi <4 numbers>, ssj <n>, reset; ssj / blysk = tests',
     })
 
     await $.command.register({
       name: 'tlo-kinto',
-      description: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc = wybór tła',
+      description: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc = choose the backdrop',
     })
 
     return next(e)
