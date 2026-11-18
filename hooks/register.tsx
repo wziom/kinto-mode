@@ -706,6 +706,36 @@ const ALIAS: Record<string, string> = {
   style: 'styl',
 }
 
+const zastosujPlan = async ($: EngineInterface, before: readonly string[], after: string[]): Promise<void> => {
+  await update($, plan, () => after)
+
+  // Kule wokół czatu: ile ukończonych zadań, tyle (proporcjonalnie, maks. 7) kul.
+  // Zawsze 7 kul, rozłożonych równo między kroki (np. 3 kroki dają 2, 2 i 3 kule; ostatni krok dostaje resztę).
+  const N = after.length
+  const widoczne = N > 0 ? Math.floor((after.filter(s => s === 'completed').length * 7) / N) : 0
+  const teraz0 = await $.clock.now()
+  const stare = await read($, kuleAt)
+  await update($, kuleAt, () => Array.from({ length: widoczne }, (_, i) => stare[i] ?? teraz0))
+
+  const was = before.filter(s => s === 'completed').length
+  const now = after.filter(s => s === 'completed').length
+  const isAll = after.length > 0 && now === after.length
+  const wasAll = before.length > 0 && was === before.length
+
+  if (now > was && !isAll) {
+    await reaguj($, 'kula', `${now}/${after.length}`)
+  }
+
+  if (isAll && !wasAll) {
+    const teraz = await $.clock.now()
+    await update($, shenronAt, () => teraz)
+    odswiezPoKulach($)
+    await reaguj($, 'shenron')
+  } else if (!isAll) {
+    await update($, shenronAt, () => 0)
+  }
+}
+
 export const register: Register = (on, options) => {
   opcje = {
     p1: liczba(options.prog1, DOMYSLNE.p1),
@@ -969,33 +999,18 @@ export const register: Register = (on, options) => {
 
   on('tool.call', { tool: PLAN_TOOL }, async ($, e, next) => {
     const before = await read($, plan)
-    const after = applyPlan(before, e as unknown as Record<string, unknown>)
-    await update($, plan, () => after)
+    await zastosujPlan($, before, applyPlan(before, e as unknown as Record<string, unknown>))
 
-    // Kule wokół czatu: ile ukończonych zadań, tyle (proporcjonalnie, maks. 7) kul.
-    // Zawsze 7 kul, rozłożonych równo między kroki (np. 3 kroki dają 2, 2 i 3 kule; ostatni krok dostaje resztę).
-    const N = after.length
-    const widoczne = N > 0 ? Math.floor((after.filter(s => s === 'completed').length * 7) / N) : 0
-    const teraz0 = await $.clock.now()
-    const stare = await read($, kuleAt)
-    await update($, kuleAt, () => Array.from({ length: widoczne }, (_, i) => stare[i] ?? teraz0))
+    return next(e)
+  })
 
-    const was = before.filter(s => s === 'completed').length
-    const now = after.filter(s => s === 'completed').length
-    const isAll = after.length > 0 && now === after.length
-    const wasAll = before.length > 0 && was === before.length
+  // Ostatni krok zwykle zamyka dopiero wrap_up (sam odhacza listę), a nie update_plan,
+  // więc bez tego ostatnia kula nigdy by nie wskoczyła, a krok zostawał jako "…".
+  on('tool.call', { tool: 'mcp__ccd_turn__wrap_up' }, async ($, e, next) => {
+    const before = await read($, plan)
 
-    if (now > was && !isAll) {
-      await reaguj($, 'kula', `${now}/${after.length}`)
-    }
-
-    if (isAll && !wasAll) {
-      const teraz = await $.clock.now()
-      await update($, shenronAt, () => teraz)
-      odswiezPoKulach($)
-      await reaguj($, 'shenron')
-    } else if (!isAll) {
-      await update($, shenronAt, () => 0)
+    if (before.length > 0 && before.some(s => s !== 'completed')) {
+      await zastosujPlan($, before, before.map(() => 'completed'))
     }
 
     return next(e)
