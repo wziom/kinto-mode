@@ -51,7 +51,7 @@ Session commands override these until the session ends.
 ## Good to know
 
 - **Animations frozen (for example on a Mac):** usually the system "Reduce motion" setting. Set the plugin option `motion` to `always`, try `frame` = `sandbox`, or turn Reduce motion off in System Settings > Accessibility > Display.
-- **Sound:** plays through the system player available on macOS; on Windows and Linux it may stay silent. Toasts always work.
+- **Sound:** plays with `afplay` on macOS and through PowerShell on Windows; on Linux it may stay silent. Toasts always work.
 - **Dragon Balls** are counted from the desktop app's task list; other clients may not light them up.
 - The backdrop SVG is near the engine's size limit, so the scene is a painterly mosaic, not a photograph.
 - Command arguments are Polish (`zachod`, `zmierzch`, `noc`, `progi`, `styl`, `blysk`) with English aliases (`sunset`, `dusk`, `night`, `thresholds`, `style`, `flash`).

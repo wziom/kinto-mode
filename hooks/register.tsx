@@ -77,8 +77,26 @@ const reaguj = async ($: EngineInterface, nazwa: string, n?: string | number): P
   }
 
   if (r.dzwiek !== undefined && r.dzwiek !== '') {
-    $.audio.play({ asset: r.dzwiek }).catch(() => undefined)
+    zagraj($, r.dzwiek)
   }
+}
+
+// $.audio.play gra tylko na macOS (afplay); na Windows nic nie słychać. Tam odtwarzamy plik przez
+// PowerShell (System.Media.SoundPlayer, pliki WAV PCM). Windows poznajemy po ścieżce z literą dysku.
+const zagraj = ($: EngineInterface, plik: string): void => {
+  const root = $.plugin.root
+
+  if (/^[A-Za-z]:[\\/]/.test(root)) {
+    const sciezka = `${root}/${plik}`.replace(/\//g, '\\').replace(/'/g, "''")
+    $.process
+      .run(['powershell', '-NoProfile', '-NonInteractive', '-Command', `(New-Object Media.SoundPlayer '${sciezka}').PlaySync()`], {
+        timeoutMs: 15000,
+      })
+      .catch(() => undefined)
+
+    return
+  }
+  $.audio.play({ asset: plik }).catch(() => undefined)
 }
 
 // ---------------------------------------------------------------------------

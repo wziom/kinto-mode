@@ -128,7 +128,7 @@ Goku does not follow the cursor. The scene runs no scripts, so all motion is pur
 
 ## Known limitations
 
-- **Sound:** according to the documentation the engine plays clips through the system player available on macOS. On Windows and Linux sounds may not play. Toasts always work.
+- **Sound:** the engine plays clips with `afplay`, so it works on macOS. On Windows the mod plays the WAV files through PowerShell (`System.Media.SoundPlayer`) instead. On Linux sounds may not play. Toasts always work.
 - **One scene at a time:** a theme accepts one scene, so the mod swaps it when the time of day changes or after `/tlo-kinto`. It refreshes at the next backdrop repaint.
 - **Scene size limit:** the backdrop SVG may be 131,072 characters. The mosaic (176×84 cells), Goku and extras take about 125k on each of the three scenes, so there is little headroom.
 - **Dragon Balls:** counted from calls to the task-list tool (`mcp__ccd_turn__update_plan`) in the desktop app. In other clients the list may look different and the balls will not light up.
