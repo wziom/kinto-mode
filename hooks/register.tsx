@@ -102,6 +102,9 @@ const blyskMocy = ($: EngineInterface, klatka = 1): void => {
     $.clock.after(BLYSK_MS, () => blyskMocy($, klatka + 1))
   }
 }
+// Test: wymuszony Super Saiyan (/moc-kinto ssj), niezależnie od poziomu mocy.
+const ssjTest = atom({ plugin: 'goku', key: 'ssjTest' } as const, false)
+const SSJ_PROG = 90
 const isFlying = atom({ plugin: 'goku', key: 'isFlying' } as const, false)
 const isStyled = atom({ plugin: 'goku', key: 'isStyled' } as const, false)
 // Wybrane tło: 'auto' (według pory dnia), 'zachod', 'zmierzch' albo 'noc'.
@@ -350,6 +353,10 @@ const STYLE =
   '100%{transform:translate(0px,0px)}}' +
   '@keyframes fala{0%,100%{transform:translateY(-2.5px) rotate(-6deg)}50%{transform:translateY(3px) rotate(6deg)}}' +
   '@keyframes kame{0%{transform:scale(.2);opacity:.95}100%{transform:scale(2.6);opacity:0}}' +
+  '@keyframes ssp{0%,100%{transform:scale(.85);opacity:.7}50%{transform:scale(1.25);opacity:1}}' +
+  '@keyframes ssb{0%,100%{opacity:.05}50%{opacity:.2}}' +
+  '.ss{transform-box:fill-box;transform-origin:center;animation:ssp .9s ease-in-out infinite}' +
+  '.ssb{animation:ssb 1.6s ease-in-out infinite}' +
   '@keyframes blysk{0%,100%{opacity:.25}50%{opacity:1}}' +
   '@keyframes smok{0%{transform:translateX(-110px)}100%{transform:translateX(250px)}}' +
   shenCss() +
@@ -362,12 +369,12 @@ const STYLE =
   `.sh{animation:smok ${SHEN_LOT}s linear 1 forwards}` +
   `.sb{animation:sb ${SHEN_T}s linear infinite}.sg{animation:sg ${SHEN_T}s linear infinite}.sr{animation:sr ${SHEN_T}s linear infinite}` +
   `.fg{transform-box:fill-box;transform-origin:0% 36.5%;animation:fg ${SHEN_T}s linear infinite}` +
-  '@media (prefers-reduced-motion:reduce){.gk,.fl,.kf,.st,.sh,.sb,.sg,.sr,.fg,.kp,.kl,.kz,.kw,.kr{animation:none!important}}' +
+  '@media (prefers-reduced-motion:reduce){.gk,.fl,.kf,.st,.sh,.sb,.sg,.sr,.fg,.kp,.kl,.kz,.kw,.kr,.ss,.ssb{animation:none!important}}' +
   '</style>'
 
 // shenronSek: ile sekund minęło od zebrania wszystkich kul (null = Shenron się nie pokazuje).
 type Grafika = 'zachod' | 'zmierzch' | 'noc'
-type Opis = { phase: string; grafika: Grafika; shenronSek: number | null; isFlying: boolean; kule: string; teraz: number }
+type Opis = { phase: string; grafika: Grafika; shenronSek: number | null; isFlying: boolean; kule: string; teraz: number; ssj: boolean }
 
 // Rozstrzyga, którą grafikę pokazać: wybór użytkownika albo pora dnia przy 'auto'
 // (zachód 6–19, zmierzch 19–22, noc 22–6).
@@ -396,6 +403,7 @@ const sceneFor = (o: Opis): string => {
     '<linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F8A3A"/><stop offset=".6" stop-color="#4FB04F"/><stop offset="1" stop-color="#E6C27A"/></linearGradient>' +
     '<linearGradient id="fg" gradientUnits="userSpaceOnUse" x1="0" y1="46" x2="0" y2="60"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>' +
     '<mask id="fm" maskUnits="userSpaceOnUse" x="-500" y="0" width="1200" height="90"><rect x="-500" y="0" width="1200" height="90" fill="url(#fg)"/></mask>' +
+    '<radialGradient id="ssg"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/><stop offset=".35" stop-color="#FFE04A" stop-opacity=".85"/><stop offset="1" stop-color="#FFB000" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="ki"><stop offset="0" stop-color="#FFF6C8"/><stop offset=".5" stop-color="#FFD25A" stop-opacity=".8"/><stop offset="1" stop-color="#FF9F1C" stop-opacity="0"/></radialGradient>' + KULE_DEFS + '</defs>'
 
   const night =
@@ -405,6 +413,8 @@ const sceneFor = (o: Opis): string => {
         ? STARS_NOC
         : ''
 
+  const ssjTlo = o.ssj ? '<rect class="ssb" x="0" y="0" width="180" height="90" fill="#FFD94F"/>' : ''
+  const ssjAura = o.ssj ? '<circle class="ss" cx="34" cy="33" r="11" fill="url(#ssg)"/>' : ''
   const shenron = o.shenronSek !== null && o.shenronSek < SHEN_LOT ? shenronFor(o.shenronSek) : ''
   const kame = o.phase === 'done' ? '<g class="kf"><circle cx="34" cy="33" r="7" fill="url(#ki)"/></g>' : ''
 
@@ -415,8 +425,9 @@ const sceneFor = (o: Opis): string => {
     STYLE +
     `<g filter="url(#b)">${TLA_SVG[o.grafika]}</g>` +
     night +
+    ssjTlo +
     shenron +
-    `<g class="${mode}"><g class="fl" style="animation-delay:-${((o.teraz / 1000) % 10).toFixed(2)}s"><g class="gk" style="animation-delay:-${((o.teraz / 1000) % (mode === 'work' ? 2.4 : 6)).toFixed(2)}s"><g transform="translate(29 28) scale(0.052)" filter="url(#g)">${GOKU_PATHS}</g></g></g></g>` +
+    `<g class="${mode}"><g class="fl" style="animation-delay:-${((o.teraz / 1000) % 10).toFixed(2)}s"><g class="gk" style="animation-delay:-${((o.teraz / 1000) % (mode === 'work' ? 2.4 : 6)).toFixed(2)}s">${ssjAura}<g transform="translate(29 28) scale(0.052)" filter="url(#g)">${GOKU_PATHS}</g></g></g></g>` +
     kame +
     o.kule +
     '</svg>'
@@ -488,6 +499,11 @@ export const register: Register = on => {
     })
 
     await $.command.register({
+      name: 'moc-kinto',
+      description: 'Goku: /moc-kinto = stan mocy, /moc-kinto ssj = test Super Saiyana, /moc-kinto blysk = test błysku paska',
+    })
+
+    await $.command.register({
       name: 'tlo-kinto',
       description: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc = wybór tła',
     })
@@ -507,6 +523,28 @@ export const register: Register = on => {
     await reaguj($, 'shenron')
 
     return { text: 'Shenron przywołany. Przelot trwa ok. 45 sekund.' }
+  })
+
+  on('command.run', { command: 'moc-kinto' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    const pct = await read($, percent)
+
+    if (arg === 'ssj') {
+      const now = !(await read($, ssjTest))
+      await update($, ssjTest, () => now)
+
+      return { text: now ? 'Super Saiyan (test) włączony.' : 'Super Saiyan (test) wyłączony.' }
+    }
+
+    if (arg === 'blysk') {
+      blyskMocy($)
+
+      return { text: 'Błysk paska mocy.' }
+    }
+
+    return {
+      text: `Moc ${moc(pct)}. Super Saiyan od ${SSJ_PROG}%. Test: /moc-kinto ssj albo /moc-kinto blysk.`,
+    }
   })
 
   on('command.run', { command: 'tlo-kinto' }, async ($, e) => {
@@ -580,6 +618,10 @@ export const register: Register = on => {
       if (lv > prev) {
         await reaguj($, 'poziom', moc(pct))
         blyskMocy($)
+
+        if (lv === 4) {
+          $.ui.toast('SUPER SAIYAN! Moc przekroczyła 90%.')
+        }
       }
 
       if (lv !== prev) {
@@ -697,6 +739,7 @@ export const register: Register = on => {
       isFlying: await read($, isFlying),
       kule,
       teraz,
+      ssj: (await read($, percent)) >= SSJ_PROG || (await read($, ssjTest)),
     })
 
     return <Svg source={source} alt="Góry o zachodzie, pomarańczowe niebo, Goku w locie" />
@@ -712,6 +755,7 @@ export const register: Register = on => {
     const filled = Math.max(0, Math.min(20, Math.round(pct / 5)))
     const bar = '█'.repeat(filled) + '░'.repeat(20 - filled)
     const klatka = await read($, mocBlysk)
+    const ssj = pct >= SSJ_PROG || (await read($, ssjTest))
 
     // Po awansie na wyższy poziom pasek przez kilka sekund miga i ma ramkę z iskrami,
     // żeby było widać, że dźwięk dotyczy wzrostu mocy. Bez ruchu (klatka 0) wraca do zwykłego wyglądu.
@@ -723,6 +767,16 @@ export const register: Register = on => {
         <Box>
           <Text color={kolor} bold backgroundColor={klatka % 2 === 0 ? '#C25A00' : '#8A3F00'}>
             {` ${iskry} MOC ROŚNIE ${moc(pct)} ${bar} ${iskry} `}
+          </Text>
+        </Box>
+      )
+    }
+
+    if (ssj) {
+      return (
+        <Box>
+          <Text color="#FFE04A" bold backgroundColor="#8A3F00">
+            {` ⚡ SUPER SAIYAN ${moc(pct)} ${bar} ⚡ `}
           </Text>
         </Box>
       )

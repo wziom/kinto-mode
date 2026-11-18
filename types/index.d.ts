@@ -9,6 +9,7 @@ declare module 'claude-code' {
       kuleAt: Shaped<number[]>
       odswiez: number
       mocBlysk: number
+      ssjTest: boolean
       isFlying: boolean
       isStyled: boolean
       tlo: string
