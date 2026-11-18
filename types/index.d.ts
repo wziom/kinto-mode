@@ -12,6 +12,7 @@ declare module 'claude-code' {
       ssjTest: boolean
       progiNad: Shaped<number[]>
       ssjNad: number
+      jezykNad: string
       isFlying: boolean
       isStyled: boolean
       tlo: string

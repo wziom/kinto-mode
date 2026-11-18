@@ -50,18 +50,18 @@ const LOOK: ThemeSetArgs = {
 
 // ---------------------------------------------------------------------------
 // Reakcje na zdarzenia. Tu ustawiasz, co się dzieje przy każdym z nich:
-// dźwięk (plik z folderu sounds/) i powiadomienie. {n} to poziom mocy lub liczba kul.
-// Pusty dźwięk albo toast = brak. Dźwięki grają tam, gdzie aplikacja ma odtwarzacz.
+// dźwięk (plik z folderu sounds/). Teksty powiadomień (toasty) są w tabeli TXT niżej, osobno dla każdego języka.
+// Pusty dźwięk = brak. Dźwięki grają tam, gdzie aplikacja ma odtwarzacz.
 // ---------------------------------------------------------------------------
-type Reakcja = { dzwiek?: string; toast?: string }
+type Reakcja = { dzwiek?: string }
 
 const EVENTY: Record<string, Reakcja> = {
   start: { dzwiek: 'sounds/start.wav' },
-  koniec: { dzwiek: 'sounds/koniec.wav', toast: 'Kamehameha! Tura zakończona.' },
-  poziom: { dzwiek: 'sounds/poziom.wav', toast: 'Poziom mocy: {n}' },
-  kompakt: { dzwiek: 'sounds/kompakt.wav', toast: 'Kontekst skompresowany: moc spada.' },
-  kula: { dzwiek: 'sounds/kula.wav', toast: 'Smocza kula zebrana: {n}' },
-  shenron: { dzwiek: 'sounds/shenron.wav', toast: 'Wszystkie smocze kule zebrane! Shenron się pojawia.' },
+  koniec: { dzwiek: 'sounds/koniec.wav' },
+  poziom: { dzwiek: 'sounds/poziom.wav' },
+  kompakt: { dzwiek: 'sounds/kompakt.wav' },
+  kula: { dzwiek: 'sounds/kula.wav' },
+  shenron: { dzwiek: 'sounds/shenron.wav' },
 }
 
 const reaguj = async ($: EngineInterface, nazwa: string, n?: string | number): Promise<void> => {
@@ -70,9 +70,10 @@ const reaguj = async ($: EngineInterface, nazwa: string, n?: string | number): P
   if (r === undefined) {
     return
   }
+  const toast = (await tx($)).toast[nazwa]
 
-  if (r.toast !== undefined && r.toast !== '') {
-    $.ui.toast(r.toast.replace('{n}', String(n ?? '')))
+  if (toast !== undefined && toast !== '') {
+    $.ui.toast(toast.replace('{n}', String(n ?? '')))
   }
 
   if (r.dzwiek !== undefined && r.dzwiek !== '') {
@@ -111,6 +112,17 @@ const progiNad = atom({ plugin: 'goku', key: 'progiNad' } as const, [] as number
 const ssjNad = atom({ plugin: 'goku', key: 'ssjNad' } as const, 0)
 const DOMYSLNE = { p1: 25, p2: 50, p3: 75, p4: 90, ssj: 50 }
 let opcje = { ...DOMYSLNE }
+
+type Lang = 'pl' | 'en'
+// Język tekstów w aplikacji: ustawienie wtyczki (language), a /lang-kinto pl|en nadpisuje je do końca sesji.
+const jezykNad = atom({ plugin: 'goku', key: 'jezykNad' } as const, '')
+let jezykOpcja: Lang = 'en'
+
+const jez = async ($: Parameters<typeof read>[0]): Promise<Lang> => {
+  const v = await read($, jezykNad)
+
+  return v === 'pl' || v === 'en' ? v : jezykOpcja
+}
 
 const liczba = (v: unknown, def: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(100, Math.round(v))) : def
@@ -506,9 +518,167 @@ const applyPlan = (cur: readonly string[], input: Record<string, unknown>): stri
 }
 
 
-const STYL =
-  'Dodatkowy styl (motyw Kinto Mode): odpowiadaj normalnie i rzeczowo, ale możesz od czasu do czasu ' +
-  'dodać krótkie, lekkie nawiązanie do Dragon Ball (np. o „poziomie mocy” zadania). Nie wpływa to na treść techniczną.'
+type Teksty = {
+  toast: Record<string, string>
+  styl: string
+  niemaRysowania: (powod: string) => string
+  opisAura: string
+  opisShenron: string
+  opisMoc: string
+  opisTlo: string
+  opisLang: string
+  shenronOdlecial: string
+  shenronPrzywolany: string
+  ssjTestOn: string
+  ssjTestOff: string
+  blysk: string
+  ssjPodaj: string
+  progiPodaj: string
+  progiUstaw: (p: number[]) => string
+  ssjUstaw: (n: number) => string
+  reset: (p: number[], ssj: number) => string
+  stan: (pct: string, p: number[], ssj: number) => string
+  tloAktualne: (cur: string, lista: string) => string
+  tloNieznane: (arg: string, lista: string) => string
+  tlo: Record<string, string>
+  stylOn: string
+  stylOff: string
+  auraOn: string
+  auraOff: string
+  ssjToast: (n: number) => string
+  langUstaw: (l: string) => string
+  langPodaj: string
+  alt: string
+  rosnie: string
+  moc: string
+  ponad: string
+  ki: string
+  blad: string
+  trafil: string
+}
+
+const TXT: Record<Lang, Teksty> = {
+  pl: {
+    toast: {
+      koniec: 'Kamehameha! Tura zakończona.',
+      poziom: 'Poziom mocy: {n}',
+      kompakt: 'Kontekst skompresowany: moc spada.',
+      kula: 'Smocza kula zebrana: {n}',
+      shenron: 'Wszystkie smocze kule zebrane! Shenron się pojawia.',
+    },
+    styl:
+      'Dodatkowy styl (motyw Kinto Mode): odpowiadaj normalnie i rzeczowo, ale możesz od czasu do czasu ' +
+      'dodać krótkie, lekkie nawiązanie do Dragon Ball (np. o „poziomie mocy” zadania). Nie wpływa to na treść techniczną.',
+    niemaRysowania: powod => `Goku: nie rysuje się: ${powod}`,
+    opisAura: 'Goku: /aura-kinto = lot ciągły, /aura-kinto styl = lekki styl Dragon Ball w odpowiedziach',
+    opisShenron: 'Goku: /shenron-kinto = przywołaj Shenrona (test), /shenron-kinto stop = odeślij',
+    opisMoc: 'Goku: /moc-kinto = stan mocy i progi; progi <4 liczby>, ssj <n>, reset; ssj / blysk = testy',
+    opisTlo: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc = wybór tła',
+    opisLang: 'Goku: /lang-kinto pl|en = język tekstów',
+    shenronOdlecial: 'Shenron odleciał.',
+    shenronPrzywolany: 'Shenron przywołany. Przelot trwa ok. 45 sekund.',
+    ssjTestOn: 'Super Saiyan (test) włączony.',
+    ssjTestOff: 'Super Saiyan (test) wyłączony.',
+    blysk: 'Błysk paska mocy.',
+    ssjPodaj: 'Podaj próg 1–100, np. /moc-kinto ssj 40.',
+    progiPodaj: 'Podaj cztery rosnące progi 1–100, np. /moc-kinto progi 20 40 60 80.',
+    progiUstaw: p => `Progi mocy: ${p.join(', ')}%.`,
+    ssjUstaw: n => `Super Saiyan od ${n}%.`,
+    reset: (p, ssj) => `Progi przywrócone do ustawień wtyczki: ${p.join(', ')}%, Super Saiyan od ${ssj}%.`,
+    stan: (pct, p, ssj) =>
+      `Moc ${pct}. Progi: ${p.join(', ')}%. Super Saiyan od ${ssj}%.\n` +
+      'Zmiana: /moc-kinto progi 20 40 60 80, /moc-kinto ssj 40, /moc-kinto reset. ' +
+      'Test: /moc-kinto ssj (bez liczby) albo /moc-kinto blysk.',
+    tloAktualne: (cur, lista) => `Tło: ${cur}. Wybierz: ${lista}. Przykład: /tlo-kinto zmierzch`,
+    tloNieznane: (arg, lista) => `Nie znam tła „${arg}". Dostępne: ${lista}.`,
+    tlo: {
+      auto: 'Tło: auto (zachód 6–19, zmierzch 19–22, noc 22–6).',
+      zachod: 'Tło: zachód słońca.',
+      zmierzch: 'Tło: zmierzch z gwiazdami.',
+      noc: 'Tło: gwiaździsta noc.',
+    },
+    stylOn: 'Styl Dragon Ball włączony.',
+    stylOff: 'Styl Dragon Ball wyłączony.',
+    auraOn: 'Aura włączona: Goku leci cały czas.',
+    auraOff: 'Aura wyłączona: Goku leci tylko, gdy Claude pracuje.',
+    ssjToast: n => `SUPER SAIYAN! Moc przekroczyła ${n}%.`,
+    langUstaw: l => `Język: ${l}.`,
+    langPodaj: 'Podaj język: /lang-kinto pl albo /lang-kinto en.',
+    alt: 'Góry o zachodzie, pomarańczowe niebo, Goku w locie',
+    rosnie: 'MOC ROŚNIE',
+    moc: 'Moc',
+    ponad: ' (ponad 9000!)',
+    ki: '◌ ładowanie ki…',
+    blad: '✕ atak nieudany',
+    trafil: '● cios trafił',
+  },
+  en: {
+    toast: {
+      koniec: 'Kamehameha! Turn finished.',
+      poziom: 'Power level: {n}',
+      kompakt: 'Context compacted: power drops.',
+      kula: 'Dragon Ball collected: {n}',
+      shenron: 'All Dragon Balls collected! Shenron appears.',
+    },
+    styl:
+      'Extra style (Kinto Mode theme): answer normally and factually, but you may occasionally ' +
+      'add a short, light Dragon Ball reference (for example a task\'s "power level"). It does not affect the technical content.',
+    niemaRysowania: powod => `Goku: cannot draw: ${powod}`,
+    opisAura: 'Goku: /aura-kinto = continuous flight, /aura-kinto styl = light Dragon Ball style in replies',
+    opisShenron: 'Goku: /shenron-kinto = summon Shenron (test), /shenron-kinto stop = send him away',
+    opisMoc: 'Goku: /moc-kinto = power level and thresholds; progi <4 numbers>, ssj <n>, reset; ssj / blysk = tests',
+    opisTlo: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc (sunset|dusk|night also work) = choose the backdrop',
+    opisLang: 'Goku: /lang-kinto pl|en = language of the texts',
+    shenronOdlecial: 'Shenron flew away.',
+    shenronPrzywolany: 'Shenron summoned. The flight takes about 45 seconds.',
+    ssjTestOn: 'Super Saiyan (test) on.',
+    ssjTestOff: 'Super Saiyan (test) off.',
+    blysk: 'Power bar flash.',
+    ssjPodaj: 'Give a threshold 1–100, e.g. /moc-kinto ssj 40.',
+    progiPodaj: 'Give four increasing thresholds 1–100, e.g. /moc-kinto progi 20 40 60 80.',
+    progiUstaw: p => `Power thresholds: ${p.join(', ')}%.`,
+    ssjUstaw: n => `Super Saiyan from ${n}%.`,
+    reset: (p, ssj) => `Thresholds back to the plugin settings: ${p.join(', ')}%, Super Saiyan from ${ssj}%.`,
+    stan: (pct, p, ssj) =>
+      `Power ${pct}. Thresholds: ${p.join(', ')}%. Super Saiyan from ${ssj}%.\n` +
+      'Change: /moc-kinto progi 20 40 60 80, /moc-kinto ssj 40, /moc-kinto reset. ' +
+      'Test: /moc-kinto ssj (no number) or /moc-kinto blysk.',
+    tloAktualne: (cur, lista) => `Backdrop: ${cur}. Choose: ${lista}. Example: /tlo-kinto zmierzch (or dusk)`,
+    tloNieznane: (arg, lista) => `Unknown backdrop "${arg}". Available: ${lista}.`,
+    tlo: {
+      auto: 'Backdrop: auto (sunset 6–19, dusk 19–22, night 22–6).',
+      zachod: 'Backdrop: sunset.',
+      zmierzch: 'Backdrop: dusk with stars.',
+      noc: 'Backdrop: starry night.',
+    },
+    stylOn: 'Dragon Ball style on.',
+    stylOff: 'Dragon Ball style off.',
+    auraOn: 'Aura on: Goku flies all the time.',
+    auraOff: 'Aura off: Goku flies only while Claude works.',
+    ssjToast: n => `SUPER SAIYAN! Power passed ${n}%.`,
+    langUstaw: l => `Language: ${l}.`,
+    langPodaj: 'Give a language: /lang-kinto pl or /lang-kinto en.',
+    alt: 'Mountains at sunset, orange sky, Goku in flight',
+    rosnie: 'POWER RISING',
+    moc: 'Power',
+    ponad: ' (over 9000!)',
+    ki: '◌ charging ki…',
+    blad: '✕ attack failed',
+    trafil: '● hit landed',
+  },
+}
+
+const tx = async ($: Parameters<typeof read>[0]): Promise<Teksty> => TXT[await jez($)]
+
+// Aliasy angielskich nazw tła i podkomend (polskie nazwy zostają podstawowe).
+const ALIAS: Record<string, string> = {
+  sunset: 'zachod',
+  dusk: 'zmierzch',
+  night: 'noc',
+  thresholds: 'progi',
+  flash: 'blysk',
+  style: 'styl',
+}
 
 export const register: Register = (on, options) => {
   opcje = {
@@ -518,6 +688,7 @@ export const register: Register = (on, options) => {
     p4: liczba(options.prog4, DOMYSLNE.p4),
     ssj: liczba(options.progSsj, DOMYSLNE.ssj),
   }
+  jezykOpcja = options.language === 'pl' ? 'pl' : 'en'
 
   on('session.start', async ($, e, next) => {
     const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
@@ -528,27 +699,34 @@ export const register: Register = (on, options) => {
     const set = await $.theme.set(LOOK)
 
     if (!set.isDrawn) {
-      $.ui.toast(`Goku: nie rysuje się: ${set.reason}`)
+      $.ui.toast((await tx($)).niemaRysowania(set.reason))
     }
+
+    const t = await tx($)
 
     await $.command.register({
       name: 'aura-kinto',
-      description: 'Goku: /aura-kinto = continuous flight, /aura-kinto styl = light Dragon Ball style in replies',
+      description: t.opisAura,
     })
 
     await $.command.register({
       name: 'shenron-kinto',
-      description: 'Goku: /shenron-kinto = summon Shenron (test), /shenron-kinto stop = send him away',
+      description: t.opisShenron,
     })
 
     await $.command.register({
       name: 'moc-kinto',
-      description: 'Goku: /moc-kinto = power level and thresholds; progi <4 numbers>, ssj <n>, reset; ssj / blysk = tests',
+      description: t.opisMoc,
     })
 
     await $.command.register({
       name: 'tlo-kinto',
-      description: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc = choose the backdrop',
+      description: t.opisTlo,
+    })
+
+    await $.command.register({
+      name: 'lang-kinto',
+      description: t.opisLang,
     })
 
     return next(e)
@@ -556,33 +734,38 @@ export const register: Register = (on, options) => {
 
   // Test i zabawa: przywołuje Shenrona bez zbierania kul. /shenron-kinto stop kończy przelot.
   on('command.run', { command: 'shenron-kinto' }, async ($, e) => {
+    const t = await tx($)
+
     if (e.args.trim() === 'stop') {
       await update($, shenronAt, () => 0)
 
-      return { text: 'Shenron odleciał.' }
+      return { text: t.shenronOdlecial }
     }
     await update($, shenronAt, () => Date.now())
     odswiezPoKulach($)
     await reaguj($, 'shenron')
 
-    return { text: 'Shenron przywołany. Przelot trwa ok. 45 sekund.' }
+    return { text: t.shenronPrzywolany }
   })
 
   on('command.run', { command: 'moc-kinto' }, async ($, e) => {
-    const arg = e.args.trim().toLowerCase()
+    const t = await tx($)
+    const arg0 = e.args.trim().toLowerCase()
+    const [w0 = '', ...reszta] = arg0.split(/\s+/)
+    const arg = [ALIAS[w0] ?? w0, ...reszta].join(' ').trim()
     const pct = await read($, percent)
 
     if (arg === 'ssj') {
       const now = !(await read($, ssjTest))
       await update($, ssjTest, () => now)
 
-      return { text: now ? 'Super Saiyan (test) włączony.' : 'Super Saiyan (test) wyłączony.' }
+      return { text: now ? t.ssjTestOn : t.ssjTestOff }
     }
 
     if (arg === 'blysk') {
       blyskMocy($)
 
-      return { text: 'Błysk paska mocy.' }
+      return { text: t.blysk }
     }
 
     const cur = await progi($)
@@ -591,23 +774,23 @@ export const register: Register = (on, options) => {
       const n = Number(arg.slice(4))
 
       if (!Number.isFinite(n) || n < 1 || n > 100) {
-        return { text: 'Podaj próg 1–100, np. /moc-kinto ssj 40.' }
+        return { text: t.ssjPodaj }
       }
       await update($, ssjNad, () => Math.round(n))
 
-      return { text: `Super Saiyan od ${Math.round(n)}%.` }
+      return { text: t.ssjUstaw(Math.round(n)) }
     }
 
     if (arg.startsWith('progi ')) {
       const n = arg.slice(6).split(/[\s,]+/).filter(Boolean).map(Number)
 
       if (n.length !== 4 || n.some(x => !Number.isFinite(x) || x < 1 || x > 100) || n.some((x, i) => i > 0 && x <= n[i - 1])) {
-        return { text: 'Podaj cztery rosnące progi 1–100, np. /moc-kinto progi 20 40 60 80.' }
+        return { text: t.progiPodaj }
       }
       const nowe = n.map(Math.round)
       await update($, progiNad, () => nowe)
 
-      return { text: `Progi mocy: ${nowe.join(', ')}%.` }
+      return { text: t.progiUstaw(nowe) }
     }
 
     if (arg === 'reset') {
@@ -615,51 +798,55 @@ export const register: Register = (on, options) => {
       await update($, ssjNad, () => 0)
       const d = await progi($)
 
-      return { text: `Progi przywrócone do ustawień wtyczki: ${d.p.join(', ')}%, Super Saiyan od ${d.ssj}%.` }
+      return { text: t.reset(d.p, d.ssj) }
     }
 
-    return {
-      text:
-        `Moc ${moc(pct)}. Progi: ${cur.p.join(', ')}%. Super Saiyan od ${cur.ssj}%.\n` +
-        'Zmiana: /moc-kinto progi 20 40 60 80, /moc-kinto ssj 40, /moc-kinto reset. ' +
-        'Test: /moc-kinto ssj (bez liczby) albo /moc-kinto blysk.',
-    }
+    return { text: t.stan(moc(pct), cur.p, cur.ssj) }
   })
 
   on('command.run', { command: 'tlo-kinto' }, async ($, e) => {
-    const arg = e.args.trim().toLowerCase()
+    const t = await tx($)
+    const arg0 = e.args.trim().toLowerCase()
+    const arg = ALIAS[arg0] ?? arg0
     const cur = await read($, tlo)
 
     if (arg === '') {
-      return { text: `Tło: ${cur}. Wybierz: ${TLA.join(', ')}. Przykład: /tlo-kinto zmierzch` }
+      return { text: t.tloAktualne(cur, TLA.join(', ')) }
     }
 
     if (!(TLA as readonly string[]).includes(arg)) {
-      return { text: `Nie znam tła „${arg}". Dostępne: ${TLA.join(', ')}.` }
+      return { text: t.tloNieznane(arg0, TLA.join(', ')) }
     }
     await update($, tlo, () => arg as Tlo)
 
-    const OPIS: Record<string, string> = {
-      auto: 'Tło: auto (zachód 6–19, zmierzch 19–22, noc 22–6).',
-      zachod: 'Tło: zachód słońca.',
-      zmierzch: 'Tło: zmierzch z gwiazdami.',
-      noc: 'Tło: gwiaździsta noc.',
-    }
-
-    return { text: OPIS[arg] ?? '' }
+    return { text: t.tlo[arg] ?? '' }
   })
 
   on('command.run', { command: 'aura-kinto' }, async ($, e) => {
-    if (e.args.trim() === 'styl') {
+    const t = await tx($)
+    const arg = e.args.trim().toLowerCase()
+
+    if (arg === 'styl' || arg === 'style') {
       const now = !(await read($, isStyled))
       await update($, isStyled, () => now)
 
-      return { text: now ? 'Styl Dragon Ball włączony.' : 'Styl Dragon Ball wyłączony.' }
+      return { text: now ? t.stylOn : t.stylOff }
     }
     const now = !(await read($, isFlying))
     await update($, isFlying, () => now)
 
-    return { text: now ? 'Aura włączona: Goku leci cały czas.' : 'Aura wyłączona: Goku leci tylko, gdy Claude pracuje.' }
+    return { text: now ? t.auraOn : t.auraOff }
+  })
+
+  on('command.run', { command: 'lang-kinto' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+
+    if (arg !== 'pl' && arg !== 'en') {
+      return { text: (await tx($)).langPodaj }
+    }
+    await update($, jezykNad, () => arg)
+
+    return { text: TXT[arg].langUstaw(arg) }
   })
 
   on('turn.start', async ($, e, next) => {
@@ -702,13 +889,13 @@ export const register: Register = (on, options) => {
       }
 
       if (pct >= cfg.ssj && prevPct < cfg.ssj) {
-        $.ui.toast(`SUPER SAIYAN! Moc przekroczyła ${cfg.ssj}%.`)
+        $.ui.toast((await tx($)).ssjToast(cfg.ssj))
       }
 
       if (lv !== prev) {
         await update($, level, () => lv)
       }
-      $.ui.status(`Moc ${moc(pct)}`)
+      $.ui.status(`${(await tx($)).moc} ${moc(pct)}`)
     }
 
     return next(e)
@@ -743,7 +930,7 @@ export const register: Register = (on, options) => {
         const lv = poziomZ(pct, (await progi($)).p)
         await update($, percent, () => pct as number)
         await update($, level, () => lv)
-        $.ui.status(`Moc ${moc(pct)}`)
+        $.ui.status(`${(await tx($)).moc} ${moc(pct)}`)
       }
 
       await reaguj($, 'kompakt')
@@ -793,7 +980,7 @@ export const register: Register = (on, options) => {
       return out
     }
 
-    return { ...out, sections: [...out.sections, { id: 'goku:styl', text: STYL, scope: 'session' as const }] }
+    return { ...out, sections: [...out.sections, { id: 'goku:styl', text: (await tx($)).styl, scope: 'session' as const }] }
   })
 
   on('ui.render', { component: 'Backdrop' }, async ($, e, next) => {
@@ -823,7 +1010,7 @@ export const register: Register = (on, options) => {
       ssj: (await read($, percent)) >= (await progi($)).ssj || (await read($, ssjTest)),
     })
 
-    return <Svg source={source} alt="Góry o zachodzie, pomarańczowe niebo, Goku w locie" />
+    return <Svg source={source} alt={(await tx($)).alt} />
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -832,6 +1019,7 @@ export const register: Register = (on, options) => {
     }
 
     const { Box, Text } = $.ui.resolve(e)
+    const t = await tx($)
     const pct = await read($, percent)
     const filled = Math.max(0, Math.min(20, Math.round(pct / 5)))
     const bar = '█'.repeat(filled) + '░'.repeat(20 - filled)
@@ -848,7 +1036,7 @@ export const register: Register = (on, options) => {
       return (
         <Box>
           <Text color={kolor} bold backgroundColor={klatka % 2 === 0 ? '#C25A00' : '#8A3F00'}>
-            {` ${iskry} MOC ROŚNIE ${moc(pct)} ${bar} ${iskry} `}
+            {` ${iskry} ${t.rosnie} ${moc(pct)} ${bar} ${iskry} `}
           </Text>
         </Box>
       )
@@ -867,8 +1055,8 @@ export const register: Register = (on, options) => {
     return (
       <Box>
         <Text color="#F57C00">
-          Moc {moc(pct)}
-          {pct >= cfg.p[3] ? ' (ponad 9000!)' : ''} {bar}
+          {t.moc} {moc(pct)}
+          {pct >= cfg.p[3] ? t.ponad : ''} {bar}
         </Text>
       </Box>
     )
@@ -876,13 +1064,14 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     const { Box, Text } = $.ui.resolve(e)
+    const t = await tx($)
     const row = await next(e)
 
     return (
       <Box flexDirection="column">
         {row}
         <Text color={e.isErrored ? '#C62828' : '#F57C00'} dimColor={!e.isRunning}>
-          {e.isRunning ? '◌ ładowanie ki…' : e.isErrored ? '✕ atak nieudany' : '● cios trafił'}
+          {e.isRunning ? t.ki : e.isErrored ? t.blad : t.trafil}
         </Text>
       </Box>
     )

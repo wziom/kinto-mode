@@ -23,7 +23,7 @@ A Dragon Ball–themed mod for Claude: orange palette (light by day, dark by nig
 | **Three backdrops** | Sunset (6–19 h), dusk with a purple sky (19–22 h) and a starry night (22–6 h). `auto` picks by time of day; force one with `/tlo-kinto`. |
 | **Stars** | At dusk and night, small stars twinkle in the clear sky, each at its own rhythm. |
 | **Tool call captions** | Under a tool call: "charging ki…" while running, "hit landed" on success, "attack failed" on error. |
-| **Sounds and toasts per event** | Configurable in a single table (see below). |
+| **Sounds and toasts per event** | Configurable in a single table (see below), in English or Polish. |
 
 ### Backdrops
 
@@ -31,7 +31,7 @@ A Dragon Ball–themed mod for Claude: orange palette (light by day, dark by nig
 | --- | --- | --- |
 | ![Sunset](docs/scene-sunset.svg) | ![Dusk](docs/scene-dusk.svg) | ![Night](docs/scene-night.svg) |
 
-> The in-app texts (toasts, captions, command replies) are currently in Polish.
+> In-app texts (toasts, captions, the power bar, command replies) come in English and Polish: see [Language](#language). Command arguments stay Polish (`zachod`, `zmierzch`, `noc`, `progi`, `styl`, `blysk`), with English aliases (`sunset`, `dusk`, `night`, `thresholds`, `style`, `flash`).
 
 ## Installation
 
@@ -82,26 +82,31 @@ Commands end in `-kinto` so they do not clash with other plugins' commands.
 ### Power thresholds
 
 The defaults are 25, 50, 75 and 90% for the four power levels and 50% for Super Saiyan. To change them permanently, edit the plugin's options (`prog1`–`prog4` and `progSsj`, shown when you install the plugin and in its settings). The commands above override them until the session ends.
+| `/lang-kinto pl` / `en` | Switches the language of in-app texts for the current session. |
 | `/shenron-kinto` | Summons Shenron without collecting balls (for testing). `/shenron-kinto stop` sends him away. |
 
 ## Event configuration
 
-Sounds and notifications are set in the `EVENTY` table at the top of [`hooks/register.tsx`](hooks/register.tsx):
+Sounds are set in the `EVENTY` table at the top of [`hooks/register.tsx`](hooks/register.tsx); notification texts live in the `TXT` table below it, one set per language:
 
 ```ts
 const EVENTY: Record<string, Reakcja> = {
   start:   { dzwiek: 'sounds/start.wav' },
-  koniec:  { dzwiek: 'sounds/koniec.wav', toast: 'Kamehameha! Tura zakończona.' },
-  poziom:  { dzwiek: 'sounds/poziom.wav', toast: 'Poziom mocy: {n}' },
-  kompakt: { dzwiek: 'sounds/kompakt.wav', toast: 'Kontekst skompresowany: moc spada.' },
-  kula:    { dzwiek: 'sounds/kula.wav', toast: 'Smocza kula zebrana: {n}' },
-  shenron: { dzwiek: 'sounds/shenron.wav', toast: 'Wszystkie smocze kule zebrane! Shenron się pojawia.' },
+  koniec:  { dzwiek: 'sounds/koniec.wav' },
+  poziom:  { dzwiek: 'sounds/poziom.wav' },
+  kompakt: { dzwiek: 'sounds/kompakt.wav' },
+  kula:    { dzwiek: 'sounds/kula.wav' },
+  shenron: { dzwiek: 'sounds/shenron.wav' },
 }
 ```
 
 - `dzwiek` (sound): path to a file in `sounds/`. An empty string or a missing key means silence.
-- `toast`: notification text. `{n}` is replaced by the power level or the number of collected balls.
+- `TXT.<lang>.toast.<event>`: notification text. `{n}` is replaced by the power level or the number of collected balls. An empty string means no toast.
 - Events: `start` (turn begins), `koniec` (turn ends), `poziom` (new power threshold), `kompakt` (context compaction), `kula` (task step completed), `shenron` (whole list completed).
+
+## Language
+
+In-app texts are available in English (default) and Polish. Set the `language` option in the plugin settings for a permanent choice, or run `/lang-kinto pl` or `/lang-kinto en` to switch for the current session.
 
 All sounds were generated locally in ComfyUI (effects: Stable Audio Open, Shenron theme: ACE-Step 1.5) and lightly processed (filter, saturation, short reverb). They use nobody's recordings. Stable Audio Open has its own licence (Stability AI Community License): commercial use requires registration with Stability AI above the revenue thresholds it sets.
 
