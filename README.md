@@ -1,70 +1,82 @@
 # Kinto Mode
 
-Pomarańczowy motyw dla Claude inspirowany Dragon Ballem. Jasny w dzień, ciemny w nocy, z malowanym tłem górskim i Goku, który leci na Kinto-un w oddali. To nie tylko skórka: mod mierzy „poziom mocy" Twojej sesji, zbiera smocze kule z listy zadań i przywołuje Shenrona, gdy wszystkie są zebrane.
+A Dragon Ball–themed mod for Claude: orange palette (light by day, dark by night), a painted mountain backdrop and Goku riding the Flying Nimbus in the distance. It is more than a skin: the mod tracks your session's **power level**, collects **Dragon Balls** from your task list, and summons **Shenron** when you collect all seven.
 
-> Poziom mocy tej paczki: ponad 9000. Instalacja: kilka sekund.
+> Power level of this package: over 9000. Install time: a few seconds.
 
-## Co dostajesz
+![Sunset scene with Goku on the Flying Nimbus](docs/scene-sunset.svg)
 
-| Funkcja | Jak działa |
+*Preview of the backdrop layers (static render of the mod's own scene; in the app Goku and the extras are animated).*
+
+## What you get
+
+| Feature | How it works |
 | --- | --- |
-| **Motyw kolorystyczny** | Paleta pomarańczu, kremu i brązu w trybie jasnym i ciemnym. Akcent `#F57C00`, niebieski `#1F4E9E` jako kolor dodatkowy. |
-| **Tło z górami** | Pomarańczowe niebo i góry z grafiki wygenerowanej w ComfyUI, wbudowane jako SVG. Panele rozmywają się nad nim, a tekst zostaje czytelny. |
-| **Goku w locie** | W spoczynku unosi się w oddali. Gdy Claude pracuje, rusza z miejsca, przelatuje przez scenę, wraca z lewej i hamuje w domu. |
-| **Kamehameha** | Po zakończeniu tury Goku odpala jednorazowy błysk. |
-| **Poziom mocy** | Pasek nad polem pisania pokazuje użycie kontekstu sesji w procentach, tak jak panel kontekstu w aplikacji (względem okna kompresji). Przy 25, 50, 75 i 90% są dźwięk i toast, a powyżej 9000 dopisek „ponad 9000!". Moc jest też w pasku statusu. |
-| **Smocze kule** | Ukończone kroki listy zadań przywołują żółto-pomarańczowe kule z czerwonymi gwiazdkami (1–7), która lewituje wokół czatu, na przemian po lewej i po prawej, w różnych rozmiarach. Zawsze jest 7 kul, rozłożonych równo między kroki (3 kroki dają 2, 2 i 3 kule). Po ukończeniu listy kule bieleją, rozbłyskują i znikają, a potem wypływa Shenron. Kula powstała w ComfyUI (wzór koloru i połysku), gwiazdki są rysowane wektorowo. |
-| **Shenron** | Gdy wszystkie zadania są ukończone, zielony smok przelatuje raz przez niebo nad górami (ok. 45 sekund). Jest rozplątany i faluje po sinusoidzie: ciało to gładka wstęga, której kształt animuje CSS klatka po klatce, więc fala biegnie od głowy do ogona, a głowa (wektoryzowana z grafiki z ComfyUI, z domalowanym okiem) kiwa się razem z nią. Po przelocie znika i nie wraca, dopóki nie zbierzesz kul od nowa. |
-| **Trzy tła** | Zachód słońca (6–19), zmierzch z purpurowym niebem (19–22) i gwiaździsta noc (22–6). Domyślnie `auto` wybiera według pory dnia, a konkretne tło ustawisz komendą `/tlo-kinto`. |
-| **Gwiazdy** | Na zmierzchu i w nocy na czystym niebie migają drobne gwiazdy, każda we własnym rytmie. Noc ma ich najwięcej. |
-| **Dopiski przy narzędziach** | Pod wywołaniem narzędzia: „ładowanie ki…", „cios trafił" albo „atak nieudany". |
-| **Dźwięki i toasty per zdarzenie** | Konfigurowalne w jednej tabeli (patrz niżej). |
+| **Colour theme** | Orange, cream and brown palette in light and dark mode. Accent `#F57C00`, with blue `#1F4E9E` as a secondary colour. |
+| **Mountain backdrop** | Orange sky and mountains from an image generated in ComfyUI, embedded as SVG. Panels are blurred over it so text stays readable. |
+| **Flying Goku** | Idle: he hovers in the distance. While Claude works he takes off, crosses the scene, returns from the left and brakes at home. |
+| **Kamehameha** | When a turn finishes, Goku fires a one-off flash. |
+| **Power level** | A bar above the prompt shows the session's context usage as a percentage, the same as the app's context panel (relative to the compaction window). At 25, 50, 75 and 90% there is a sound and a toast, and the bar flashes. Above 90% it adds "over 9000!". The value is also in the status line. |
+| **Dragon Balls** | Each completed step of the task list summons a yellow-orange ball with red stars (1–7) that hovers around the chat, alternating left and right. There are always seven, spread evenly across the steps (3 steps give 2, 2 and 3 balls). When the list is complete the balls turn white, flash and vanish, and Shenron appears. |
+| **Shenron** | After all tasks are done a green dragon flies once across the sky (about 45 seconds). It is untangled into a sine wave: the body is a smooth ribbon animated frame by frame in CSS, with the head (vectorised from a ComfyUI image) nodding along. It then disappears until you collect the balls again. |
+| **Three backdrops** | Sunset (6–19 h), dusk with a purple sky (19–22 h) and a starry night (22–6 h). `auto` picks by time of day; force one with `/tlo-kinto`. |
+| **Stars** | At dusk and night, small stars twinkle in the clear sky, each at its own rhythm. |
+| **Tool call captions** | Under a tool call: "charging ki…" while running, "hit landed" on success, "attack failed" on error. |
+| **Sounds and toasts per event** | Configurable in a single table (see below). |
 
-## Instalacja
+### Backdrops
 
-Mod jest marketplace'em jednego pluginu. W terminalowej sesji Claude Code:
+| Sunset | Dusk | Night |
+| --- | --- | --- |
+| ![Sunset](docs/scene-sunset.svg) | ![Dusk](docs/scene-dusk.svg) | ![Night](docs/scene-night.svg) |
+
+> The in-app texts (toasts, captions, command replies) are currently in Polish.
+
+## Installation
+
+The mod is a one-plugin marketplace. In a Claude Code session:
 
 ```
-/plugin install goku --marketplace <właściciel>/<repo>
+/plugin install goku --marketplace wziom/kinto-mode
 ```
 
-Potwierdź dodanie marketplace'u (`y`) i wybierz zasięg instalacji.
+Confirm adding the marketplace (`y`) and choose the install scope. The full name is `goku@kinto-mode`: the plugin is called `goku`, the marketplace `kinto-mode`.
 
-### Test z lokalnego folderu
+### Trying it from a local folder
 
-Zanim opublikujesz repozytorium, możesz przetestować mod prosto z dysku:
+Clone the repository, then:
 
 ```bash
-claude plugin marketplace add F:/dev/calude-kinto-mode
+claude plugin marketplace add <path-to-clone>
 claude plugin install goku@kinto-mode
 ```
 
-Po edycji plików w tym folderze odśwież mod w sesji komendą `/reload-plugins`.
+After editing files, reload the mod in a session with `/reload-plugins`.
 
-Tryb deweloperski, bez instalacji (tylko na czas jednej sesji):
+Developer mode, no installation (one session only):
 
 ```bash
-claude --plugin-dir F:/dev/calude-kinto-mode
+claude --plugin-dir <path-to-clone>
 ```
 
-### Telefon
+### Phone
 
-Mod działa na komputerze, a aplikacja mobilna rysuje wysłany przez niego motyw. Otwórz na telefonie sesję, którą hostuje komputer z zainstalowanym modem (np. przez Remote Control). Na wąskim ekranie tło jest przycinane do środka, więc Goku może wypaść z kadru. Nie testowałem tego na prawdziwym telefonie.
+The mod runs on the computer and the mobile app draws the theme it sends. Open a session hosted by a computer with the mod installed (for example through Remote Control). On a narrow screen the backdrop is cropped to the centre, so Goku may fall out of frame. Not tested on a real phone.
 
-## Komendy
+## Commands
 
-Komendy mają przyrostek `-kinto`, żeby nie myliły się z komendami innych pluginów.
+Commands end in `-kinto` so they do not clash with other plugins' commands.
 
-| Komenda | Efekt |
+| Command | Effect |
 | --- | --- |
-| `/aura-kinto` | Przełącza lot ciągły: Goku leci cały czas, a nie tylko wtedy, gdy Claude pracuje. |
-| `/tlo-kinto` | Pokazuje aktualne tło. `/tlo-kinto zachod`, `zmierzch` albo `noc` wymusza wybrane tło, `/tlo-kinto auto` wraca do wyboru według pory dnia. Wybór pamięta bieżąca sesja. |
-| `/shenron-kinto` | Przywołuje Shenrona bez zbierania kul (do testów). `/shenron-kinto stop` odsyła go. |
-| `/aura-kinto styl` | Włącza albo wyłącza lekki styl Dragon Ball w odpowiedziach. Odpowiedzi zostają rzeczowe, od czasu do czasu pojawia się krótkie nawiązanie, na przykład do „poziomu mocy" zadania. Domyślnie wyłączone. |
+| `/aura-kinto` | Toggles continuous flight: Goku flies all the time, not only while Claude works. |
+| `/aura-kinto styl` | Toggles a light Dragon Ball style in replies. Answers stay factual, with an occasional short reference such as a task's "power level". Off by default. |
+| `/tlo-kinto` | Shows the current backdrop. `/tlo-kinto zachod` (sunset), `zmierzch` (dusk) or `noc` (night) forces one, `/tlo-kinto auto` returns to time-of-day selection. The current session remembers the choice. |
+| `/shenron-kinto` | Summons Shenron without collecting balls (for testing). `/shenron-kinto stop` sends him away. |
 
-## Konfiguracja zdarzeń
+## Event configuration
 
-Dźwięki i powiadomienia ustawiasz w tabeli `EVENTY` na górze pliku [`hooks/register.tsx`](hooks/register.tsx):
+Sounds and notifications are set in the `EVENTY` table at the top of [`hooks/register.tsx`](hooks/register.tsx):
 
 ```ts
 const EVENTY: Record<string, Reakcja> = {
@@ -77,61 +89,58 @@ const EVENTY: Record<string, Reakcja> = {
 }
 ```
 
-- `dzwiek`: ścieżka do pliku w folderze `sounds/`. Pusty napis lub brak klucza oznacza ciszę.
-- `toast`: tekst powiadomienia. `{n}` zastępuje poziom mocy albo liczbę zebranych kul.
-- Zdarzenia: `start` (początek tury), `koniec` (koniec tury), `poziom` (nowy próg mocy), `kompakt` (kompresja kontekstu), `kula` (ukończony krok listy), `shenron` (ukończona cała lista).
+- `dzwiek` (sound): path to a file in `sounds/`. An empty string or a missing key means silence.
+- `toast`: notification text. `{n}` is replaced by the power level or the number of collected balls.
+- Events: `start` (turn begins), `koniec` (turn ends), `poziom` (new power threshold), `kompakt` (context compaction), `kula` (task step completed), `shenron` (whole list completed).
 
-Dźwięki (`start`, `koniec`, `poziom`, `kompakt`, `kula`, `shenron`) są wygenerowane lokalnie w ComfyUI (efekty: Stable Audio Open, motyw Shenrona: ACE-Step 1.5) i lekko obrobione (filtr, nasycenie, krótki pogłos). Nie używają niczyich nagrań. Stable Audio Open ma własną licencję (Stability AI Community License): użycie komercyjne wymaga rejestracji u Stability AI, jeśli przychód przekracza ustalone w niej progi.
+All sounds were generated locally in ComfyUI (effects: Stable Audio Open, Shenron theme: ACE-Step 1.5) and lightly processed (filter, saturation, short reverb). They use nobody's recordings. Stable Audio Open has its own licence (Stability AI Community License): commercial use requires registration with Stability AI above the revenue thresholds it sets.
 
-## Zasady latania Goku
+## How Goku flies
 
-1. Claude nie pracuje: Goku wisi w oddali i leniwie się unosi.
-2. Claude pracuje (od startu do końca tury): Goku ruszy z miejsca, rozpędzi się w prawo, wyleci za krawędź, wróci z lewej i zahamuje.
-3. Koniec tury: jednorazowy błysk Kamehameha.
-4. `/aura-kinto`: lot ciągły.
-5. Zebrane wszystkie smocze kule: w tle przepływa Shenron.
-6. Ograniczenie ruchu w systemie: wszystko stoi w miejscu.
+1. Claude is not working: Goku hangs in the distance and floats lazily.
+2. Claude is working (turn start to turn end): Goku takes off, speeds right, exits the edge, returns from the left and brakes.
+3. End of turn: a one-off Kamehameha flash.
+4. `/aura-kinto`: continuous flight.
+5. All Dragon Balls collected: Shenron flows through the background.
+6. System-level reduced motion: everything stands still.
 
-Goku nie śledzi kursora. Scena nie uruchamia skryptów, więc ruch jest zrobiony wyłącznie w CSS.
+Goku does not follow the cursor. The scene runs no scripts, so all motion is pure CSS.
 
-## Znane ograniczenia
+## Known limitations
 
-- **Dźwięk:** według dokumentacji silnik odtwarza klipy przez systemowy odtwarzacz dostępny na macOS. Na Windows i Linuksie dźwięki mogą nie zagrać. Toasty działają zawsze.
-- **Jedna scena naraz:** motyw przyjmuje jedną scenę, więc mod podmienia ją po zmianie pory dnia albo po `/tlo-kinto`. Odświeża się przy najbliższym przerysowaniu tła.
-- **Limit sceny:** SVG tła może mieć 131 072 znaki. Mozaika (176×84 komórek), Goku i dodatki zajmują ok. 125 tys. na każdej z trzech scen, więc zapas jest niewielki.
-- **Smocze kule:** liczą się z wywołań narzędzia listy zadań (`mcp__ccd_turn__update_plan`) w aplikacji desktopowej. W innych klientach lista może wyglądać inaczej i kule się nie zapalą.
-- **Rozdzielczość tła:** jest mozaiką z lekkim rozmyciem, więc wygląda malarsko, nie fotograficznie.
+- **Sound:** according to the documentation the engine plays clips through the system player available on macOS. On Windows and Linux sounds may not play. Toasts always work.
+- **One scene at a time:** a theme accepts one scene, so the mod swaps it when the time of day changes or after `/tlo-kinto`. It refreshes at the next backdrop repaint.
+- **Scene size limit:** the backdrop SVG may be 131,072 characters. The mosaic (176×84 cells), Goku and extras take about 125k on each of the three scenes, so there is little headroom.
+- **Dragon Balls:** counted from calls to the task-list tool (`mcp__ccd_turn__update_plan`) in the desktop app. In other clients the list may look different and the balls will not light up.
+- **Backdrop resolution:** it is a mosaic with light blur, so it looks painterly, not photographic.
 
-## Struktura
+## Structure
 
 ```
-.claude-plugin/plugin.json        manifest pluginu
-.claude-plugin/marketplace.json   marketplace jednego pluginu
-hooks/register.tsx                cała logika: kolory, scena, zdarzenia, pasek
-hooks/make-colors.js              generator motywu (z narzędzi pluginów)
-hooks/tlo-svg.ts                  tło dzienne (zachód) jako mozaika SVG
-hooks/tlo-noc-svg.ts              tło zmierzchu jako mozaika SVG
-hooks/tlo-gwiazdy-svg.ts          tło gwiaździstej nocy jako mozaika SVG
-hooks/goku-svg.ts                 Goku na Kinto-un jako wektorowy obrys
-hooks/shenron-svg.ts              głowa Shenrona jako wektorowy obrys (ciało rysuje register.tsx)
-sounds/                           krótkie dźwięki zdarzeń
-types/index.d.ts                  kontrakt stanu pluginu
+.claude-plugin/plugin.json        plugin manifest
+.claude-plugin/marketplace.json   one-plugin marketplace
+hooks/register.tsx                all the logic: colours, scene, events, bar
+hooks/make-colors.js              theme generator (from the plugin tools)
+hooks/tlo-svg.ts                  day backdrop (sunset) as an SVG mosaic
+hooks/tlo-noc-svg.ts              dusk backdrop as an SVG mosaic
+hooks/tlo-gwiazdy-svg.ts          starry night backdrop as an SVG mosaic
+hooks/goku-svg.ts                 Goku on the Flying Nimbus as a vector outline
+hooks/shenron-svg.ts              Shenron's head as a vector outline (the body is drawn by register.tsx)
+sounds/                           short event sounds
+docs/                             preview images used in this README
+types/index.d.ts                  plugin state contract
 ```
 
-## Rozwój
+## Development
 
-Walidacja pluginu:
+Validate the plugin:
 
 ```bash
-claude plugin validate F:/dev/calude-kinto-mode
+claude plugin validate .
 ```
 
-`hooks/tlo-svg.ts` i `hooks/goku-svg.ts` są generowane z obrazków. Jeśli podmienisz grafiki, zadbaj, żeby łączny rozmiar sceny nie przekroczył limitu z sekcji o ograniczeniach.
+`hooks/tlo-svg.ts` and `hooks/goku-svg.ts` are generated from images. If you replace the artwork, keep the total scene size under the limit from the limitations section.
 
-## Licencja
+## Licence
 
-MIT. Dragon Ball jest własnością swoich twórców. To fanowski motyw, bez oficjalnych grafik i dźwięków.
-
-## Nazwa pluginu
-
-Plugin nazywa się `goku`: pod tą nazwą pojawia się w powiadomieniach i w komunikatach o przeładowaniu. Marketplace w tym repozytorium nazywa się `kinto-mode`, więc pełna nazwa do instalacji to `goku@kinto-mode`.
+MIT. Dragon Ball belongs to its creators. This is a fan theme with no official artwork or sounds.
