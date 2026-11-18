@@ -332,6 +332,16 @@ const kuleFor = (teraz: number, czasy: readonly number[], fin: number | null, il
   }).join('')
 }
 
+// Super Saiyan: włosy to ciemna warstwa grafiki Goku (kolor #2d250f); ta sama warstwa służy też za pas,
+// więc żółty nakładamy tylko na górną część (głowę).
+const WLOSY_SSJ = (() => {
+  const warstwa = /<path[^>]*fill="#2d250f"[^>]*\/>/.exec(GOKU_PATHS)?.[0]
+
+  return warstwa === undefined
+    ? ''
+    : `<clipPath id="wl"><rect x="0" y="0" width="200" height="52"/></clipPath><g clip-path="url(#wl)">${warstwa.replaceAll('#2d250f', '#FFD21F')}</g>`
+})()
+
 const STYLE =
   '<style>' +
   '@keyframes kp{0%{transform:scale(0);opacity:0}60%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:1}}' +
@@ -427,7 +437,7 @@ const sceneFor = (o: Opis): string => {
     night +
     ssjTlo +
     shenron +
-    `<g class="${mode}"><g class="fl" style="animation-delay:-${((o.teraz / 1000) % 10).toFixed(2)}s"><g class="gk" style="animation-delay:-${((o.teraz / 1000) % (mode === 'work' ? 2.4 : 6)).toFixed(2)}s">${ssjAura}<g transform="translate(29 28) scale(0.052)" filter="url(#g)">${GOKU_PATHS}</g></g></g></g>` +
+    `<g class="${mode}"><g class="fl" style="animation-delay:-${((o.teraz / 1000) % 10).toFixed(2)}s"><g class="gk" style="animation-delay:-${((o.teraz / 1000) % (mode === 'work' ? 2.4 : 6)).toFixed(2)}s">${ssjAura}<g transform="translate(29 28) scale(0.052)" filter="url(#g)">${GOKU_PATHS}${o.ssj ? WLOSY_SSJ : ''}</g></g></g></g>` +
     kame +
     o.kule +
     '</svg>'
