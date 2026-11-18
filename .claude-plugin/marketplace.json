@@ -1,0 +1,6 @@
+{
+  "name": "kinto-mode",
+  "description": "Marketplace z jednym pluginem: motyw Dragon Ball dla Claude.",
+  "owner": { "name": "kinto-mode" },
+  "plugins": [{ "name": "goku", "source": "./", "description": "Pomarańczowy motyw Dragon Ball: Goku, poziom mocy, smocze kule i Shenron." }]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "goku",
+  "version": "0.3.1",
+  "description": "Pomarańczowy motyw Dragon Ball dla Claude: jasny i ciemny, tło z górami, Goku na Kinto-un, poziom mocy z kontekstu, smocze kule i Shenron.",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
