@@ -3,6 +3,7 @@ import type { EngineInterface, Register, ThemeSetArgs } from 'claude-code'
 
 import { makeColors } from './make-colors.js'
 import { GOKU_PATHS } from './goku-svg.js'
+import { SSJ_WLOSY_PATHS } from './ssj-wlosy-svg.js'
 import { SHENRON_PATHS } from './shenron-svg.js'
 import { TLO_PATHS } from './tlo-svg.js'
 import { TLO_NOC_PATHS } from './tlo-noc-svg.js'
@@ -333,7 +334,7 @@ const kuleFor = (teraz: number, czasy: readonly number[], fin: number | null, il
 }
 
 // Super Saiyan: inny układ włosów. Ciemna warstwa grafiki Goku (#2d250f) to jego czarne włosy i pas,
-// więc w tym trybie zostawiamy z niej tylko pas (od y=50 w dół), a na głowie rysujemy złote, sterczące włosy.
+// więc w tym trybie zostawiamy z niej tylko pas (od y=50 w dół), a na głowie kładziemy włosy z grafiki z ComfyUI (ssj-wlosy-svg.ts).
 const GOKU_SSJ = (() => {
   const warstwa = /<path[^>]*fill="#2d250f"[^>]*\/>/.exec(GOKU_PATHS)?.[0]
 
@@ -344,8 +345,7 @@ const GOKU_SSJ = (() => {
   return (
     GOKU_PATHS.replace(warstwa, '') +
     `<clipPath id="pas"><rect x="0" y="50" width="200" height="120"/></clipPath><g clip-path="url(#pas)">${warstwa}</g>` +
-    '<path fill="#FFD21F" stroke="#C98F00" stroke-width="0.8" stroke-linejoin="round" d="M68 48L64 37L71 39L67 25L77 33L78 14L87 28L93 8L99 27L107 14L107 32L115 26L111 40L113 46L104 49L90 46L78 49Z"/>' +
-    '<path fill="#FFF08A" d="M77 38L77 25L83 32L82 41ZM94 36L94 20L100 33L98 42Z"/>'
+    `<g transform="translate(62 10) scale(0.27)">${SSJ_WLOSY_PATHS}</g>`
   )
 })()
 

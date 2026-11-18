@@ -127,6 +127,7 @@ hooks/tlo-svg.ts                  day backdrop (sunset) as an SVG mosaic
 hooks/tlo-noc-svg.ts              dusk backdrop as an SVG mosaic
 hooks/tlo-gwiazdy-svg.ts          starry night backdrop as an SVG mosaic
 hooks/goku-svg.ts                 Goku on the Flying Nimbus as a vector outline
+hooks/ssj-wlosy-svg.ts            Super Saiyan hair (ComfyUI image, vectorised)
 hooks/shenron-svg.ts              Shenron's head as a vector outline (the body is drawn by register.tsx)
 sounds/                           short event sounds
 docs/                             preview images used in this README
