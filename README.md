@@ -20,7 +20,7 @@ A Dragon Ball–themed mod for Claude: orange palette (light by day, dark by nig
 | **Super Saiyan** | From 50% context usage the bar turns gold ("SUPER SAIYAN"), a golden aura pulses around Goku and the whole backdrop glows. A toast announces it. |
 | **Dragon Balls** | Each completed step of the task list summons a yellow-orange ball with red stars (1–7) that hovers around the chat, alternating left and right. There are always seven, spread evenly across the steps (3 steps give 2, 2 and 3 balls). When the list is complete the balls turn white, flash and vanish, and Shenron appears. |
 | **Shenron** | After all tasks are done a green dragon flies once across the sky (about 45 seconds). It is untangled into a sine wave: the body is a smooth ribbon animated frame by frame in CSS, with the head (vectorised from a ComfyUI image) nodding along. It then disappears until you collect the balls again. |
-| **Three backdrops** | Sunset (6–19 h), dusk with a purple sky (19–22 h) and a starry night (22–6 h). `auto` picks by time of day; force one with `/tlo-kinto`. |
+| **Three backdrops** | Sunset (6–19 h), dusk with a purple sky (19–22 h) and a starry night (22–6 h). `auto` picks by time of day; force one with `/backdrop-kinto`. |
 | **Stars** | At dusk and night, small stars twinkle in the clear sky, each at its own rhythm. |
 | **Tool call captions** | Under a tool call: "charging ki…" while running, "hit landed" on success, "attack failed" on error. |
 | **Sounds and toasts per event** | Configurable in a single table (see below), in English or Polish. |
@@ -31,7 +31,7 @@ A Dragon Ball–themed mod for Claude: orange palette (light by day, dark by nig
 | --- | --- | --- |
 | ![Sunset](docs/scene-sunset.svg) | ![Dusk](docs/scene-dusk.svg) | ![Night](docs/scene-night.svg) |
 
-> In-app texts (toasts, captions, the power bar, command replies) come in English and Polish: see [Language](#language). Command arguments stay Polish (`zachod`, `zmierzch`, `noc`, `progi`, `styl`, `blysk`), with English aliases (`sunset`, `dusk`, `night`, `thresholds`, `style`, `flash`).
+> In-app texts (toasts, captions, the power bar, command replies) come in English and Polish: see [Language](#language). Command arguments are English (`sunset`, `dusk`, `night`, `thresholds`, `style`, `flash`); the former Polish names (`zachod`, `zmierzch`, `noc`, `progi`, `styl`, `blysk`) still work as aliases.
 
 ## Installation
 
@@ -71,39 +71,45 @@ Commands end in `-kinto` so they do not clash with other plugins' commands.
 | Command | Effect |
 | --- | --- |
 | `/aura-kinto` | Toggles continuous flight: Goku flies all the time, not only while Claude works. |
-| `/aura-kinto styl` | Toggles a light Dragon Ball style in replies. Answers stay factual, with an occasional short reference such as a task's "power level". Off by default. |
-| `/tlo-kinto` | Shows the current backdrop. `/tlo-kinto zachod` (sunset), `zmierzch` (dusk) or `noc` (night) forces one, `/tlo-kinto auto` returns to time-of-day selection. The current session remembers the choice. |
-| `/moc-kinto` | Shows the power level and the current thresholds. |
-| `/moc-kinto progi 20 40 60 80` | Sets the four power-level thresholds (increasing, 1–100) for the current session. |
-| `/moc-kinto ssj 40` | Sets the context usage at which Super Saiyan starts, for the current session. |
-| `/moc-kinto reset` | Returns the thresholds to the plugin settings. |
-| `/moc-kinto ssj`, `/moc-kinto blysk` | Tests: toggles a Super Saiyan preview, triggers the power-up bar flash, so you can see them without waiting. |
+| `/aura-kinto style` | Toggles a light Dragon Ball style in replies. Answers stay factual, with an occasional short reference such as a task's "power level". Off by default. |
+| `/backdrop-kinto` | Shows the current backdrop. `/backdrop-kinto sunset`, `dusk` or `night` forces one, `/backdrop-kinto auto` returns to time-of-day selection. The current session remembers the choice. |
+| `/power-kinto` | Shows the power level and the current thresholds. |
+| `/power-kinto thresholds 20 40 60 80` | Sets the four power-level thresholds (increasing, 1–100) for the current session. |
+| `/power-kinto ssj 40` | Sets the context usage at which Super Saiyan starts, for the current session. |
+| `/power-kinto reset` | Returns the thresholds to the plugin settings. |
+| `/power-kinto ssj`, `/power-kinto flash` | Tests: toggles a Super Saiyan preview, triggers the power-up bar flash, so you can see them without waiting. |
 
 ### Power thresholds
 
-The defaults are 25, 50, 75 and 90% for the four power levels and 50% for Super Saiyan. To change them permanently, edit the plugin's options (`prog1`–`prog4` and `progSsj`, shown when you install the plugin and in its settings). The commands above override them until the session ends.
+The defaults are 25, 50, 75 and 90% for the four power levels and 50% for Super Saiyan. To change them permanently, edit the plugin's options (`threshold1`–`threshold4` and `ssjThreshold`, shown when you install the plugin and in its settings). The commands above override them until the session ends.
 | `/lang-kinto pl` / `en` | Switches the language of in-app texts for the current session. |
+| `/sound-kinto on` / `off` | Turns all event sounds on or off for the current session (toasts stay). |
+| `/sound-kinto <event> on` / `off` | Mutes or unmutes one event: `start`, `end`, `level`, `compact`, `ball`, `shenron`. Without arguments it shows the state. |
 | `/goku:kinto-help` | A skill: lists everything the plugin can do (features, commands, settings, limitations). |
 | `/shenron-kinto` | Summons Shenron without collecting balls (for testing). `/shenron-kinto stop` sends him away. |
 
 ## Event configuration
 
-Sounds are set in the `EVENTY` table at the top of [`hooks/register.tsx`](hooks/register.tsx); notification texts live in the `TXT` table below it, one set per language:
+Sounds are set in the `EVENTS` table at the top of [`hooks/register.tsx`](hooks/register.tsx); notification texts live in the `TXT` table below it, one set per language:
 
 ```ts
-const EVENTY: Record<string, Reakcja> = {
-  start:   { dzwiek: 'sounds/start.wav' },
-  koniec:  { dzwiek: 'sounds/koniec.wav' },
-  poziom:  { dzwiek: 'sounds/poziom.wav' },
-  kompakt: { dzwiek: 'sounds/kompakt.wav' },
-  kula:    { dzwiek: 'sounds/kula.wav' },
-  shenron: { dzwiek: 'sounds/shenron.wav' },
+const EVENTS: Record<string, Reaction> = {
+  start:   { sound: 'sounds/start.wav' },
+  end:     { sound: 'sounds/end.wav' },
+  level:   { sound: 'sounds/level.wav' },
+  compact: { sound: 'sounds/compact.wav' },
+  ball:    { sound: 'sounds/ball.wav' },
+  shenron: { sound: 'sounds/shenron.wav' },
 }
 ```
 
-- `dzwiek` (sound): path to a file in `sounds/`. An empty string or a missing key means silence.
+- `sound`: path to a file in `sounds/`. An empty string or a missing key means silence.
 - `TXT.<lang>.toast.<event>`: notification text. `{n}` is replaced by the power level or the number of collected balls. An empty string means no toast.
-- Events: `start` (turn begins), `koniec` (turn ends), `poziom` (new power threshold), `kompakt` (context compaction), `kula` (task step completed), `shenron` (whole list completed).
+- Events: `start` (turn begins), `end` (turn ends), `level` (new power threshold), `compact` (context compaction), `ball` (task step completed), `shenron` (whole list completed).
+
+## Sounds
+
+Sounds are on by default. Set the `sounds` option (`on` or `off`) in the plugin settings for a permanent choice, or use `/sound-kinto` to switch all sounds or a single event for the current session.
 
 ## Language
 
@@ -129,7 +135,7 @@ Goku does not follow the cursor. The scene runs no scripts, so all motion is pur
 ## Known limitations
 
 - **Sound:** the engine plays clips with `afplay`, so it works on macOS. On Windows the mod plays the WAV files through PowerShell (`System.Media.SoundPlayer`) instead. On Linux sounds may not play. Toasts always work.
-- **One scene at a time:** a theme accepts one scene, so the mod swaps it when the time of day changes or after `/tlo-kinto`. It refreshes at the next backdrop repaint.
+- **One scene at a time:** a theme accepts one scene, so the mod swaps it when the time of day changes or after `/backdrop-kinto`. It refreshes at the next backdrop repaint.
 - **Scene size limit:** the backdrop SVG may be 131,072 characters. The mosaic (176×84 cells), Goku and extras take about 125k on each of the three scenes, so there is little headroom.
 - **Dragon Balls:** counted from calls to the task-list tool (`mcp__ccd_turn__update_plan`) in the desktop app. In other clients the list may look different and the balls will not light up.
 - **Backdrop resolution:** it is a mosaic with light blur, so it looks painterly, not photographic.
@@ -141,11 +147,11 @@ Goku does not follow the cursor. The scene runs no scripts, so all motion is pur
 .claude-plugin/marketplace.json   one-plugin marketplace
 hooks/register.tsx                all the logic: colours, scene, events, bar
 hooks/make-colors.js              theme generator (from the plugin tools)
-hooks/tlo-svg.ts                  day backdrop (sunset) as an SVG mosaic
-hooks/tlo-noc-svg.ts              dusk backdrop as an SVG mosaic
-hooks/tlo-gwiazdy-svg.ts          starry night backdrop as an SVG mosaic
+hooks/backdrop-sunset-svg.ts                  day backdrop (sunset) as an SVG mosaic
+hooks/backdrop-dusk-svg.ts              dusk backdrop as an SVG mosaic
+hooks/backdrop-night-svg.ts          starry night backdrop as an SVG mosaic
 hooks/goku-svg.ts                 Goku on the Flying Nimbus as a vector outline
-hooks/ssj-wlosy-svg.ts            Super Saiyan hair (ComfyUI image, vectorised)
+hooks/ssj-hair-svg.ts            Super Saiyan hair (ComfyUI image, vectorised)
 hooks/shenron-svg.ts              Shenron's head as a vector outline (the body is drawn by register.tsx)
 skills/kinto-help/SKILL.md          skill that lists everything the plugin can do
 sounds/                           short event sounds
@@ -161,7 +167,7 @@ Validate the plugin:
 claude plugin validate .
 ```
 
-`hooks/tlo-svg.ts` and `hooks/goku-svg.ts` are generated from images. If you replace the artwork, keep the total scene size under the limit from the limitations section.
+`hooks/backdrop-sunset-svg.ts` and `hooks/goku-svg.ts` are generated from images. If you replace the artwork, keep the total scene size under the limit from the limitations section.
 
 ## Licence
 

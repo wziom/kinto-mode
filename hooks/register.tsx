@@ -3,14 +3,14 @@ import type { EngineInterface, Register, ThemeSetArgs } from 'claude-code'
 
 import { makeColors } from './make-colors.js'
 import { GOKU_PATHS } from './goku-svg.js'
-import { SSJ_WLOSY_PATHS } from './ssj-wlosy-svg.js'
+import { SSJ_HAIR_PATHS } from './ssj-hair-svg.js'
 import { SHENRON_PATHS } from './shenron-svg.js'
-import { TLO_PATHS } from './tlo-svg.js'
-import { TLO_NOC_PATHS } from './tlo-noc-svg.js'
-import { TLO_GWIAZDY_PATHS } from './tlo-gwiazdy-svg.js'
+import { SUNSET_PATHS } from './backdrop-sunset-svg.js'
+import { DUSK_PATHS } from './backdrop-dusk-svg.js'
+import { NIGHT_PATHS } from './backdrop-night-svg.js'
 
 // ---------------------------------------------------------------------------
-// Kolory: ciepły kremowy dzień i głęboka brązowo-pomarańczowa noc.
+// Colours: a warm cream day and a deep brown-orange night.
 // ---------------------------------------------------------------------------
 const { theme, problems } = makeColors({
   label: 'Kinto Mode',
@@ -49,158 +49,171 @@ const LOOK: ThemeSetArgs = {
 }
 
 // ---------------------------------------------------------------------------
-// Reakcje na zdarzenia. Tu ustawiasz, co się dzieje przy każdym z nich:
-// dźwięk (plik z folderu sounds/). Teksty powiadomień (toasty) są w tabeli TXT niżej, osobno dla każdego języka.
-// Pusty dźwięk = brak. Dźwięki grają tam, gdzie aplikacja ma odtwarzacz.
+// Reactions to events. Here you set what happens on each of them:
+// a sound (a file from the sounds/ folder). Notification texts (toasts) are in the TXT table below, one set per language.
+// An empty sound means silence. Sounds play wherever the app has a player.
 // ---------------------------------------------------------------------------
-type Reakcja = { dzwiek?: string }
+type Reaction = { sound?: string }
 
-const EVENTY: Record<string, Reakcja> = {
-  start: { dzwiek: 'sounds/start.wav' },
-  koniec: { dzwiek: 'sounds/koniec.wav' },
-  poziom: { dzwiek: 'sounds/poziom.wav' },
-  kompakt: { dzwiek: 'sounds/kompakt.wav' },
-  kula: { dzwiek: 'sounds/kula.wav' },
-  shenron: { dzwiek: 'sounds/shenron.wav' },
+const EVENTS: Record<string, Reaction> = {
+  start: { sound: 'sounds/start.wav' },
+  end: { sound: 'sounds/end.wav' },
+  level: { sound: 'sounds/level.wav' },
+  compact: { sound: 'sounds/compact.wav' },
+  ball: { sound: 'sounds/ball.wav' },
+  shenron: { sound: 'sounds/shenron.wav' },
 }
 
-const reaguj = async ($: EngineInterface, nazwa: string, n?: string | number): Promise<void> => {
-  const r = EVENTY[nazwa]
+const react = async ($: EngineInterface, name: string, n?: string | number): Promise<void> => {
+  const r = EVENTS[name]
 
   if (r === undefined) {
     return
   }
-  const toast = (await tx($)).toast[nazwa]
+  const toast = (await tx($)).toast[name]
 
   if (toast !== undefined && toast !== '') {
     $.ui.toast(toast.replace('{n}', String(n ?? '')))
   }
 
-  if (r.dzwiek !== undefined && r.dzwiek !== '') {
-    zagraj($, r.dzwiek)
+  if (r.sound !== undefined && r.sound !== '' && (await soundEnabled($, name))) {
+    play($, r.sound)
   }
 }
 
-// $.audio.play gra tylko na macOS (afplay); na Windows nic nie słychać. Tam odtwarzamy plik przez
-// PowerShell (System.Media.SoundPlayer, pliki WAV PCM). Windows poznajemy po ścieżce z literą dysku.
-const zagraj = ($: EngineInterface, plik: string): void => {
+// $.audio.play only works on macOS (afplay); on Windows nothing is heard. There we play the file through
+// PowerShell (System.Media.SoundPlayer, PCM WAV files). Windows is recognised by a path with a drive letter.
+const play = ($: EngineInterface, file: string): void => {
   const root = $.plugin.root
 
   if (/^[A-Za-z]:[\\/]/.test(root)) {
-    const sciezka = `${root}/${plik}`.replace(/\//g, '\\').replace(/'/g, "''")
+    const filePath = `${root}/${file}`.replace(/\//g, '\\').replace(/'/g, "''")
     $.process
-      .run(['powershell', '-NoProfile', '-NonInteractive', '-Command', `(New-Object Media.SoundPlayer '${sciezka}').PlaySync()`], {
+      .run(['powershell', '-NoProfile', '-NonInteractive', '-Command', `(New-Object Media.SoundPlayer '${filePath}').PlaySync()`], {
         timeoutMs: 15000,
       })
       .catch(() => undefined)
 
     return
   }
-  $.audio.play({ asset: plik }).catch(() => undefined)
+  $.audio.play({ asset: file }).catch(() => undefined)
 }
 
 // ---------------------------------------------------------------------------
-// Stan.
+// State.
 // ---------------------------------------------------------------------------
 const phase = atom({ plugin: 'goku', key: 'phase' } as const, 'idle')
 const percent = atom({ plugin: 'goku', key: 'percent' } as const, 0)
 const level = atom({ plugin: 'goku', key: 'level' } as const, 0)
 const plan = atom({ plugin: 'goku', key: 'plan' } as const, [], { shape: 'plan-1' })
-// Chwila (ms), w której zebrano wszystkie kule; 0 = nie zebrano. Przelot Shenrona trwa raz.
+// Moment (ms) when all the balls were collected; 0 = not collected. Shenron's flight happens once.
 const shenronAt = atom({ plugin: 'goku', key: 'shenronAt' } as const, 0)
-// Chwile (ms), w których pojawiły się kolejne kule wokół czatu (indeks = numer kuli).
-const kuleAt = atom({ plugin: 'goku', key: 'kuleAt' } as const, [], { shape: 'kule-1' })
-// Licznik wymuszający przerysowanie tła (po finale kul scena musi się odświeżyć, żeby pokazać Shenrona).
-const odswiez = atom({ plugin: 'goku', key: 'odswiez' } as const, 0)
-// Klatka błysku paska mocy po awansie na wyższy poziom (0 = brak błysku).
-const mocBlysk = atom({ plugin: 'goku', key: 'mocBlysk' } as const, 0)
-const BLYSK_KLATEK = 12
-const BLYSK_MS = 350
-const blyskMocy = ($: EngineInterface, klatka = 1): void => {
-  update($, mocBlysk, () => (klatka > BLYSK_KLATEK ? 0 : klatka)).catch(() => undefined)
-  if (klatka <= BLYSK_KLATEK) {
-    $.clock.after(BLYSK_MS, () => blyskMocy($, klatka + 1))
+// Moments (ms) when each ball appeared around the chat (index = ball number).
+const ballsAt = atom({ plugin: 'goku', key: 'ballsAt' } as const, [], { shape: 'balls-1' })
+// Counter that forces a backdrop redraw (after the ball finale the scene must refresh to show Shenron).
+const refresh = atom({ plugin: 'goku', key: 'refresh' } as const, 0)
+// Frame of the power bar flash after reaching a higher level (0 = no flash).
+const powerFlash = atom({ plugin: 'goku', key: 'powerFlash' } as const, 0)
+const FLASH_STEPS = 12
+const FLASH_MS = 350
+const flashPower = ($: EngineInterface, step = 1): void => {
+  update($, powerFlash, () => (step > FLASH_STEPS ? 0 : step)).catch(() => undefined)
+  if (step <= FLASH_STEPS) {
+    $.clock.after(FLASH_MS, () => flashPower($, step + 1))
   }
 }
-// Test: wymuszony Super Saiyan (/moc-kinto ssj), niezależnie od poziomu mocy.
+// Test: forced Super Saiyan (/power-kinto ssj), regardless of the power level.
 const ssjTest = atom({ plugin: 'goku', key: 'ssjTest' } as const, false)
-// Progi mocy (%) i próg Super Saiyana. Domyślne wartości biorą się z ustawień wtyczki
-// (userConfig), a /moc-kinto próg|ssj <n> nadpisuje je do końca sesji.
-const progiNad = atom({ plugin: 'goku', key: 'progiNad' } as const, [] as number[])
-const ssjNad = atom({ plugin: 'goku', key: 'ssjNad' } as const, 0)
-const DOMYSLNE = { p1: 25, p2: 50, p3: 75, p4: 90, ssj: 50 }
-let opcje = { ...DOMYSLNE }
+// Power thresholds (%) and the Super Saiyan threshold. Defaults come from the plugin settings
+// (userConfig), and /power-kinto thresholds|ssj <n> overrides them until the session ends.
+const thresholdsOverride = atom({ plugin: 'goku', key: 'thresholdsOverride' } as const, [] as number[])
+const ssjOverride = atom({ plugin: 'goku', key: 'ssjOverride' } as const, 0)
+const DEFAULTS = { p1: 25, p2: 50, p3: 75, p4: 90, ssj: 50 }
+let settings = { ...DEFAULTS }
 
 type Lang = 'pl' | 'en'
-// Język tekstów w aplikacji: ustawienie wtyczki (language), a /lang-kinto pl|en nadpisuje je do końca sesji.
-const jezykNad = atom({ plugin: 'goku', key: 'jezykNad' } as const, '')
-let jezykOpcja: Lang = 'en'
+// Language of in-app texts: the plugin setting (language); /lang-kinto pl|en overrides it until the session ends.
+const langOverride = atom({ plugin: 'goku', key: 'langOverride' } as const, '')
+let langOption: Lang = 'en'
 
-const jez = async ($: Parameters<typeof read>[0]): Promise<Lang> => {
-  const v = await read($, jezykNad)
+// Sounds: the plugin setting (sounds); /sound-kinto overrides it until the session ends.
+// soundOverride: '' = from settings, 'on' / 'off' = forced; mutedOverride = events muted one by one.
+const soundOverride = atom({ plugin: 'goku', key: 'soundOverride' } as const, '')
+const mutedOverride = atom({ plugin: 'goku', key: 'mutedOverride' } as const, [] as string[])
+let soundOption = true
 
-  return v === 'pl' || v === 'en' ? v : jezykOpcja
+const soundEnabled = async ($: Parameters<typeof read>[0], name: string): Promise<boolean> => {
+  const override = await read($, soundOverride)
+  const globalOn = override === 'on' ? true : override === 'off' ? false : soundOption
+
+  return globalOn && !(await read($, mutedOverride)).includes(name)
 }
 
-const liczba = (v: unknown, def: number): number =>
+const getLang = async ($: Parameters<typeof read>[0]): Promise<Lang> => {
+  const v = await read($, langOverride)
+
+  return v === 'pl' || v === 'en' ? v : langOption
+}
+
+const clampPct = (v: unknown, def: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(100, Math.round(v))) : def
 
-const progi = async ($: Parameters<typeof read>[0]) => {
-  const nad = await read($, progiNad)
-  const p = nad.length === 4 ? [...nad] : [opcje.p1, opcje.p2, opcje.p3, opcje.p4]
-  const s = await read($, ssjNad)
+const getThresholds = async ($: Parameters<typeof read>[0]) => {
+  const override = await read($, thresholdsOverride)
+  const p = override.length === 4 ? [...override] : [settings.p1, settings.p2, settings.p3, settings.p4]
+  const s = await read($, ssjOverride)
 
-  return { p, ssj: s > 0 ? s : opcje.ssj }
+  return { p, ssj: s > 0 ? s : settings.ssj }
 }
 
-const poziomZ = (pct: number, p: readonly number[]): number => p.filter(x => pct >= x).length
+const levelFrom = (pct: number, p: readonly number[]): number => p.filter(x => pct >= x).length
 const isFlying = atom({ plugin: 'goku', key: 'isFlying' } as const, false)
 const isStyled = atom({ plugin: 'goku', key: 'isStyled' } as const, false)
-// Wybrane tło: 'auto' (według pory dnia), 'zachod', 'zmierzch' albo 'noc'.
-const tlo = atom({ plugin: 'goku', key: 'tlo' } as const, 'auto')
+// Chosen backdrop: 'auto' (by time of day), 'sunset', 'dusk' or 'night'.
+const backdropChoice = atom({ plugin: 'goku', key: 'backdropChoice' } as const, 'auto')
 
-const TLA = ['auto', 'zachod', 'zmierzch', 'noc'] as const
-type Tlo = (typeof TLA)[number]
+const BACKDROPS = ['auto', 'sunset', 'dusk', 'night'] as const
+type BackdropChoice = (typeof BACKDROPS)[number]
 
 const PLAN_TOOL = 'mcp__ccd_turn__update_plan'
 
-// Poziom mocy to po prostu procent użytego kontekstu.
-const moc = (pct: number): string => `${Math.round(pct)}%`
+// The power level is simply the percentage of context used.
+const power = (pct: number): string => `${Math.round(pct)}%`
 
 // ---------------------------------------------------------------------------
-// Scena. Zasady latania:
-//  1. Gdy Claude nie pracuje, Goku wisi w oddali i leniwie się unosi.
-//  2. Gdy pracuje (turn.start do turn.complete), Goku ruszy z miejsca i przelatuje przez scenę.
-//  3. Po zakończeniu tury Goku odpala Kamehameha (jednorazowy błysk).
-//  4. /aura-kinto włącza lot ciągły. Przy ograniczeniu ruchu stoi w miejscu.
-//  5. Po zebraniu wszystkich smoczych kul Shenron leniwie przepływa w oddali.
-//  6. Wieczorem i w nocy niebo ciemnieje i pojawiają się gwiazdy.
+// Scene. Flying rules:
+//  1. When Claude is not working, Goku hangs in the distance and lazily floats.
+//  2. While Claude works (turn.start to turn.complete), Goku takes off and flies across the scene.
+//  3. When the turn ends, Goku fires a Kamehameha (a one-off flash).
+//  4. /aura-kinto turns on continuous flight. With reduced motion he stands still.
+//  5. After all the Dragon Balls are collected, Shenron lazily drifts across the distance.
+//  6. In the evening and at night the sky darkens and stars appear.
 // ---------------------------------------------------------------------------
-// Małe gwiazdy rozsiane po czystym niebie, każda miga we własnym rytmie.
-// Pozycje i rytmy są stałe (generator pseudolosowy z ziarnem), więc wygląd nie zmienia się przy odświeżeniu.
-type Pas = { x0: number; x1: number; y0: number; y1: number; n: number }
+// Small stars scattered over the clear sky, each twinkling at its own rhythm.
+// Positions and rhythms are fixed (a seeded pseudo-random generator), so the look does not change on refresh.
+type Band = { x0: number; x1: number; y0: number; y1: number; n: number }
 
-const gwiazdy = (PASY: Pas[], ziarno: number): string => {
-  let seed = ziarno
-  const los = (): number => {
+const stars = (BANDS: Band[], seedValue: number): string => {
+  let seed = seedValue
+  const rand = (): number => {
     seed = (seed * 1103515245 + 12345) % 2147483648
 
     return seed / 2147483648
   }
 
-  return PASY.flatMap((p) => Array.from({ length: p.n }, (_, i) => ({
-    x: p.x0 + (i + 0.15 + 0.7 * los()) * ((p.x1 - p.x0) / p.n),
-    y: p.y0 + (p.y1 - p.y0) * los(),
+  return BANDS.flatMap((p) => Array.from({ length: p.n }, (_, i) => ({
+    x: p.x0 + (i + 0.15 + 0.7 * rand()) * ((p.x1 - p.x0) / p.n),
+    y: p.y0 + (p.y1 - p.y0) * rand(),
   }))).map(({ x, y }) => {
-    const r = 0.025 + 0.065 * los() ** 2
+    const r = 0.025 + 0.065 * rand() ** 2
 
-    return `<circle class="st" style="animation-duration:${(2.2 + 3.2 * los()).toFixed(1)}s;animation-delay:-${(5 * los()).toFixed(1)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`
+    return `<circle class="st" style="animation-duration:${(2.2 + 3.2 * rand()).toFixed(1)}s;animation-delay:-${(5 * rand()).toFixed(1)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`
   }).join('')
 }
 
-// Zmierzch: czyste niebo to purpurowe prześwity między chmurami (pas przy górnej krawędzi,
-// róg po lewej i dwie szczeliny między chmurami).
-const STARS_ZMIERZCH = gwiazdy(
+// Dusk: the clear sky is purple gaps between the clouds (a band at the top edge,
+// a corner on the left and two gaps between the clouds).
+const STARS_DUSK = stars(
   [
     { x0: 2, x1: 36, y0: 2, y1: 4.5, n: 3 },
     { x0: 90, x1: 172, y0: 2, y1: 5, n: 9 },
@@ -210,9 +223,9 @@ const STARS_ZMIERZCH = gwiazdy(
   7,
 )
 
-// Noc: niebo zajmuje górne ok. 45% obrazu (horyzont z łuną jest na y ok. 36–42). Po lewej stoi duże
-// drzewo (x do ok. 58), więc gwiazdy rozsiewamy na prawo od niego, od góry do tuż nad łuną.
-const STARS_NOC = gwiazdy(
+// Night: the sky takes the top ~45% of the image (the horizon with its glow is at y ~36-42). On the left stands a large
+// tree (x up to ~58), so the stars are scattered to the right of it, from the top to just above the glow.
+const STARS_NIGHT = stars(
   [
     { x0: 62, x1: 172, y0: 2, y1: 14, n: 22 },
     { x0: 62, x1: 172, y0: 14, y1: 33, n: 22 },
@@ -220,33 +233,33 @@ const STARS_NOC = gwiazdy(
   11,
 )
 
-// Shenron: rozplątany smok. Ciało to jedna gładka wstęga (trzy warstwy: grzbiet, tło i brzuch), której kształt
-// animuje CSS-owa własność `d` po klatkach falującej sinusoidy, więc fala biegnie od głowy do ogona. Głowa to
-// wektorowy obrys z ComfyUI (shenron-svg.ts), który kiwa się razem z falą (klasa fg).
-const SHEN_LOT = 45 // sekundy jednego przelotu
-const SHEN_DL = 72 // długość ciała od ogona (końcówka chowa się pod głową)
-const SHEN_GX = 66 // gdzie siedzi głowa
-const SHEN_T = 4.5 // okres fali w sekundach
-const SHEN_A = 4.2 // amplituda fali przy ogonie
-const SHEN_K = (2 * Math.PI) / 40 // fala ma 40 jednostek długości
-const SHEN_KL = 8 // klatek na okres fali
-const SHEN_PT = 11 // punktów na brzeg ciała
+// Shenron: an untangled dragon. The body is one smooth ribbon (three layers: back, base and belly) whose shape
+// is animated by the CSS `d` property over the frames of a travelling sine wave, so the wave runs from head to tail. The head is a
+// vector outline from ComfyUI (shenron-svg.ts) that nods along with the wave (class fg).
+const SHEN_FLIGHT = 45 // seconds of one flight
+const SHEN_LEN = 72 // body length from the tail (the end hides under the head)
+const SHEN_GX = 66 // where the head sits
+const SHEN_T = 4.5 // wave period in seconds
+const SHEN_A = 4.2 // wave amplitude at the tail
+const SHEN_K = (2 * Math.PI) / 40 // the wave is 40 units long
+const SHEN_KL = 8 // frames per wave period
+const SHEN_PT = 11 // points per body edge
 
-const shenX = Array.from({ length: SHEN_PT }, (_, j) => (SHEN_DL * j) / (SHEN_PT - 1))
-const shenW = (x: number): number => 0.4 + 4.9 * (x / SHEN_DL) ** 1.4 // połowa grubości ciała
-// Amplituda maleje ku głowie (szyja faluje słabiej), więc głowa pochyla się łagodniej.
+const shenX = Array.from({ length: SHEN_PT }, (_, j) => (SHEN_LEN * j) / (SHEN_PT - 1))
+const shenW = (x: number): number => 0.4 + 4.9 * (x / SHEN_LEN) ** 1.4 // half the body thickness
+// The amplitude shrinks towards the head (the neck waves less), so the head tilts more gently.
 const shenY = (x: number, f: number): number =>
-  SHEN_A * (1 - 0.7 * (x / SHEN_DL) ** 2) * Math.sin(SHEN_K * x + (2 * Math.PI * f) / SHEN_KL)
+  SHEN_A * (1 - 0.7 * (x / SHEN_LEN) ** 2) * Math.sin(SHEN_K * x + (2 * Math.PI * f) / SHEN_KL)
 
-// Jedna warstwa w klatce f: od ogona do szyi górnym brzegiem i z powrotem dolnym. gora i dol to ułamki
-// połowy grubości względem osi ciała (-1 = grzbiet, 1 = brzuch).
-const shenPath = (f: number, gora: number, dol: number, od = 0): string => {
-  const xs = shenX.filter(x => x >= od)
-  // Współrzędne w dziesiątych częściach jednostki (całkowite), a element skaluje je z powrotem: krótszy zapis.
+// One layer in frame f: from the tail to the neck along the top edge and back along the bottom. top and bottom are fractions
+// of the half thickness relative to the body axis (-1 = back, 1 = belly).
+const shenPath = (f: number, top: number, bottom: number, start = 0): string => {
+  const xs = shenX.filter(x => x >= start)
+  // Coordinates in tenths of a unit (integers), and the element scales them back: a shorter notation.
   const p = (x: number, u: number): number[] => [x * 10, (shenY(x, f) + u * shenW(x)) * 10]
-  const pts = [...xs.map(x => p(x, gora)), ...xs.map(x => p(x, dol)).reverse()]
+  const pts = [...xs.map(x => p(x, top)), ...xs.map(x => p(x, bottom)).reverse()]
   const n = (v: number): string => String(Math.round(v))
-  // Zamknięty obrys wygładzony krzywymi: punkty są kontrolne, a krzywa przechodzi przez ich środki.
+  // A closed outline smoothed with curves: the points are control points and the curve passes through their midpoints.
   const mid = (a: number[], b: number[]): string => `${n((a[0] + b[0]) / 2)} ${n((a[1] + b[1]) / 2)}`
   let d = `M${mid(pts[pts.length - 1], pts[0])}`
 
@@ -257,20 +270,20 @@ const shenPath = (f: number, gora: number, dol: number, od = 0): string => {
   return `${d}Z`
 }
 
-const SHEN_WARSTWY = [
-  { id: 'sb', kolor: '#b2e072', gora: -1, dol: 1, od: 0 },
-  { id: 'sg', kolor: '#75c765', gora: -1, dol: -0.15, od: 0 },
-  { id: 'sr', kolor: '#f4f5c4', gora: 0.25, dol: 0.92, od: 14 },
+const SHEN_LAYERS = [
+  { id: 'sb', color: '#b2e072', top: -1, bottom: 1, start: 0 },
+  { id: 'sg', color: '#75c765', top: -1, bottom: -0.15, start: 0 },
+  { id: 'sr', color: '#f4f5c4', top: 0.25, bottom: 0.92, start: 14 },
 ] as const
 
 const shenCss = (): string => {
   let css = ''
 
-  for (const w of SHEN_WARSTWY) {
+  for (const w of SHEN_LAYERS) {
     css += `@keyframes ${w.id}{`
 
     for (let f = 0; f <= SHEN_KL; f++) {
-      css += `${((f / SHEN_KL) * 100).toFixed(0)}%{d:path("${shenPath(f % SHEN_KL, w.gora, w.dol, w.od)}")}`
+      css += `${((f / SHEN_KL) * 100).toFixed(0)}%{d:path("${shenPath(f % SHEN_KL, w.top, w.bottom, w.start)}")}`
     }
 
     css += '}'
@@ -280,8 +293,8 @@ const shenCss = (): string => {
 
   for (let f = 0; f <= SHEN_KL; f++) {
     const y = shenY(SHEN_GX, f % SHEN_KL)
-    const kat = (Math.atan(shenY(SHEN_GX + 0.5, f % SHEN_KL) - shenY(SHEN_GX - 0.5, f % SHEN_KL)) * 180) / Math.PI
-    css += `${((f / SHEN_KL) * 100).toFixed(0)}%{transform:translate(${SHEN_GX}px,${y.toFixed(1)}px) rotate(${kat.toFixed(1)}deg)}`
+    const angle = (Math.atan(shenY(SHEN_GX + 0.5, f % SHEN_KL) - shenY(SHEN_GX - 0.5, f % SHEN_KL)) * 180) / Math.PI
+    css += `${((f / SHEN_KL) * 100).toFixed(0)}%{transform:translate(${SHEN_GX}px,${y.toFixed(1)}px) rotate(${angle.toFixed(1)}deg)}`
   }
 
   return `${css}}`
@@ -289,10 +302,10 @@ const shenCss = (): string => {
 
 const shenronFor = (elapsed: number): string => {
   const op = `style="animation-delay:-${(elapsed % SHEN_T).toFixed(2)}s"`
-  const ciało = SHEN_WARSTWY.map(
-    w => `<path class="${w.id}" fill="${w.kolor}" transform="scale(.1)" d="${shenPath(0, w.gora, w.dol, w.od)}" ${op}/>`,
+  const body = SHEN_LAYERS.map(
+    w => `<path class="${w.id}" fill="${w.color}" transform="scale(.1)" d="${shenPath(0, w.top, w.bottom, w.start)}" ${op}/>`,
   ).join('')
-  const glowa =
+  const head =
     `<g class="fg" transform="translate(${SHEN_GX} 0)" ${op}>` +
     '<g transform="scale(.055) translate(0 -135)"><clipPath id="fh"><rect width="330" height="300"/></clipPath>' +
     '<linearGradient id="fn2" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="75" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient>' +
@@ -301,20 +314,20 @@ const shenronFor = (elapsed: number): string => {
 
   return (
     `<g class="sh" style="animation-delay:-${elapsed.toFixed(2)}s"><g mask="url(#fm)" filter="url(#fs)" opacity=".85">` +
-    `<g transform="translate(10 20) scale(.7)"><g filter="url(#fk)">${ciało}${glowa}</g></g></g></g>`
+    `<g transform="translate(10 20) scale(.7)"><g filter="url(#fk)">${body}${head}</g></g></g></g>`
   )
 }
 
-// Smocze kule: bursztynowa kula (wygląd z ComfyUI) z czerwonymi gwiazdkami. Kule lewitują wokół czatu,
-// na przemian po lewej i po prawej, w różnych rozmiarach. Po ukończeniu listy bieleją, rozbłyskują i znikają,
-// a dopiero potem wypływa Shenron.
-const KULE_KONIEC = 7.5 // sekundy finału kul przed Shenronem
-const odswiezPoKulach = ($: EngineInterface): void => {
-  $.clock.after(KULE_KONIEC * 1000 + 300, () => {
-    update($, odswiez, n => n + 1).catch(() => undefined)
+// Dragon Balls: an amber ball (look from ComfyUI) with red stars. The balls levitate around the chat,
+// alternately on the left and on the right, in different sizes. When the list is complete they turn white, flash and vanish,
+// and only then does Shenron appear.
+const BALLS_FINALE = 7.5 // seconds of the ball finale before Shenron
+const refreshAfterBalls = ($: EngineInterface): void => {
+  $.clock.after(BALLS_FINALE * 1000 + 300, () => {
+    update($, refresh, n => n + 1).catch(() => undefined)
   })
 }
-const KULE_POZ = [
+const BALL_POS = [
   { x: 52, y: 30, s: 0.62 },
   { x: 122, y: 20, s: 0.48 },
   { x: 49, y: 54, s: 0.4 },
@@ -323,8 +336,8 @@ const KULE_POZ = [
   { x: 119, y: 68, s: 0.44 },
   { x: 56, y: 70, s: 0.58 },
 ] as const
-// Układ gwiazdek w kuli (promień kuli = 10): [x, y, rozmiar].
-const KULE_GW: ReadonlyArray<ReadonlyArray<readonly [number, number, number]>> = [
+// Layout of the stars on a ball (ball radius = 10): [x, y, size].
+const BALL_STARS: ReadonlyArray<ReadonlyArray<readonly [number, number, number]>> = [
   [[0, 0, 3.4]],
   [[-3.4, 0, 2.4], [3.4, 0, 2.4]],
   [[0, -3.3, 2.2], [-3.4, 2.6, 2.2], [3.4, 2.6, 2.2]],
@@ -334,7 +347,7 @@ const KULE_GW: ReadonlyArray<ReadonlyArray<readonly [number, number, number]>> =
   [[0, 0, 1.7], [0, -4.7, 1.7], [4.1, -2.35, 1.7], [4.1, 2.35, 1.7], [0, 4.7, 1.7], [-4.1, 2.35, 1.7], [-4.1, -2.35, 1.7]],
 ]
 
-const KULE_DEFS =
+const BALL_DEFS =
   '<radialGradient id="kb" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#FFD94F"/><stop offset=".6" stop-color="#FFB414"/><stop offset="1" stop-color="#F28C0A"/></radialGradient>' +
   '<radialGradient id="kgl"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#FFE9A0" stop-opacity=".6"/><stop offset="1" stop-color="#FFB347" stop-opacity="0"/></radialGradient>' +
   '<path id="ks" d="M0-1L.22-.31.95-.31.36.12.59.81 0 .38-.59.81-.36.12-.95-.31-.22-.31Z"/>' +
@@ -343,130 +356,130 @@ const KULE_DEFS =
   '<circle cx="4.5" cy="5.5" r="1" fill="#fff" opacity=".5"/>' +
   '<circle r="9.7" fill="none" stroke="#C96A06" stroke-opacity=".5" stroke-width=".6"/></g>'
 
-// Jedna kula: age = sekundy od pojawienia się, fin = sekundy od startu finału (null = bez finału).
-const kulaFor = (i: number, age: number, fin: number | null, t: number): string => {
-  const p = KULE_POZ[i]
-  const gw = KULE_GW[i]
+// One ball: age = seconds since it appeared, fin = seconds since the finale started (null = no finale).
+const ballFor = (i: number, age: number, fin: number | null, t: number): string => {
+  const p = BALL_POS[i]
+  const pips = BALL_STARS[i]
     .map(([x, y, r]) => `<use href="#ks" transform="translate(${x} ${y}) scale(${r})"/>`)
     .join('')
-  const ap = `style="animation-delay:-${Math.max(0, age).toFixed(2)}s"`
+  const appear = `style="animation-delay:-${Math.max(0, age).toFixed(2)}s"`
   const dur = 3.4 + 0.5 * i
-  const lew = `style="animation-duration:${dur.toFixed(1)}s;animation-delay:-${((t / 1000 + i * 0.9) % dur).toFixed(2)}s"`
+  const hoverStyle = `style="animation-duration:${dur.toFixed(1)}s;animation-delay:-${((t / 1000 + i * 0.9) % dur).toFixed(2)}s"`
   const f = fin === null ? '' : `style="animation-delay:-${fin.toFixed(2)}s"`
-  const kula =
+  const ball =
     '<use href="#kk"/>' +
-    `<g fill="#D32F1E" stroke="#7A0E0A" stroke-width=".12" stroke-linejoin="round">${gw}</g>` +
+    `<g fill="#D32F1E" stroke="#7A0E0A" stroke-width=".12" stroke-linejoin="round">${pips}</g>` +
     (fin === null ? '' : `<circle class="kw" r="10" fill="#fff" ${f}/>`)
 
   return (
     `<g transform="translate(${p.x} ${p.y}) scale(${p.s})">` +
-    `<g class="${fin === null ? 'kz0' : 'kz'}" ${f}><g class="kp" ${ap}><g class="kl" ${lew}>${kula}</g></g></g>` +
+    `<g class="${fin === null ? 'kz0' : 'kz'}" ${f}><g class="kp" ${appear}><g class="kl" ${hoverStyle}>${ball}</g></g></g>` +
     (fin === null ? '' : `<circle class="kr" r="10" fill="url(#kgl)" ${f}/>`) +
     '</g>'
   )
 }
 
-// Wszystkie kule widoczne teraz. czasy: chwile pojawienia się; fin: sekundy od startu finału (null = brak).
-const kuleFor = (teraz: number, czasy: readonly number[], fin: number | null, ile: number): string => {
-  if (fin !== null && fin >= KULE_KONIEC) {
+// All the balls visible now. times: moments of appearance; fin: seconds since the finale started (null = none).
+const ballsFor = (nowMs: number, times: readonly number[], fin: number | null, count: number): string => {
+  if (fin !== null && fin >= BALLS_FINALE) {
     return ''
   }
 
-  const n = fin === null ? czasy.length : ile
+  const n = fin === null ? times.length : count
 
   return Array.from({ length: n }, (_, i) => {
-    const age = czasy[i] !== undefined ? (teraz - czasy[i]) / 1000 : (fin ?? 0) - 0.25 * i
+    const age = times[i] !== undefined ? (nowMs - times[i]) / 1000 : (fin ?? 0) - 0.25 * i
 
-    return kulaFor(i, age, fin, teraz)
+    return ballFor(i, age, fin, nowMs)
   }).join('')
 }
 
-// Super Saiyan: inny układ włosów. Ciemna warstwa grafiki Goku (#2d250f) to jego czarne włosy i pas,
-// więc w tym trybie zostawiamy z niej tylko pas (od y=50 w dół), a na głowie kładziemy włosy z grafiki z ComfyUI (ssj-wlosy-svg.ts).
+// Super Saiyan: a different hair layout. The dark layer of the Goku artwork (#2d250f) is his black hair and belt,
+// so in this mode we keep only the belt (from y=50 down) and put the hair from the ComfyUI artwork on the head (ssj-hair-svg.ts).
 const GOKU_SSJ = (() => {
-  const warstwa = /<path[^>]*fill="#2d250f"[^>]*\/>/.exec(GOKU_PATHS)?.[0]
+  const layer = /<path[^>]*fill="#2d250f"[^>]*\/>/.exec(GOKU_PATHS)?.[0]
 
-  if (warstwa === undefined) {
+  if (layer === undefined) {
     return GOKU_PATHS
   }
 
   return (
-    GOKU_PATHS.replace(warstwa, '') +
-    `<clipPath id="pas"><rect x="0" y="50" width="200" height="120"/></clipPath><g clip-path="url(#pas)">${warstwa}</g>` +
-    `<g transform="translate(114 10) scale(-0.27 0.27)">${SSJ_WLOSY_PATHS}</g>`
+    GOKU_PATHS.replace(layer, '') +
+    `<clipPath id="pas"><rect x="0" y="50" width="200" height="120"/></clipPath><g clip-path="url(#pas)">${layer}</g>` +
+    `<g transform="translate(114 10) scale(-0.27 0.27)">${SSJ_HAIR_PATHS}</g>`
   )
 })()
 
-// Gdy system ma włączone ograniczenie ruchu (np. macOS: Reduce motion), przeglądarka zatrzymuje wszystkie animacje.
-// Opcja motion=always pomija tę regułę i animuje zawsze.
-const RM_REGULA =
+// When the system has reduced motion on (e.g. macOS Reduce motion), the browser stops all animations.
+// The motion=always option drops this rule and always animates.
+const RM_RULE =
   '@media (prefers-reduced-motion:reduce){.gk,.fl,.kf,.st,.sh,.sb,.sg,.sr,.fg,.kp,.kl,.kz,.kw,.kr,.ss,.ssb{animation:none!important}}'
-let ruchZawsze = false
-// Opcja frame=sandbox rysuje tło w ramce zamiast jako obraz (Svg isInteractive); na macOS bywa, że obraz nie animuje.
-let ramka = false
+let motionAlways = false
+// The frame=sandbox option draws the backdrop in a frame instead of as an image (Svg isInteractive); on macOS an image sometimes does not animate.
+let sandboxFrame = false
 
 const STYLE =
   '<style>' +
   '@keyframes kp{0%{transform:scale(0);opacity:0}60%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:1}}' +
-  '@keyframes lew{0%,100%{transform:translateY(-1.6px)}50%{transform:translateY(1.6px)}}' +
-  `@keyframes bielej{0%{opacity:0}80%{opacity:.85}100%{opacity:1}}` +
-  '@keyframes znika{0%,84%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.7)}}' +
-  '@keyframes rozb{0%,70%{opacity:0;transform:scale(.5)}86%{opacity:1;transform:scale(3)}100%{opacity:0;transform:scale(5)}}' +
+  '@keyframes hover{0%,100%{transform:translateY(-1.6px)}50%{transform:translateY(1.6px)}}' +
+  `@keyframes whiten{0%{opacity:0}80%{opacity:.85}100%{opacity:1}}` +
+  '@keyframes vanish{0%,84%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.7)}}' +
+  '@keyframes burst{0%,70%{opacity:0;transform:scale(.5)}86%{opacity:1;transform:scale(3)}100%{opacity:0;transform:scale(5)}}' +
   '.kp,.kl,.kz,.kr{transform-box:fill-box;transform-origin:center}' +
   '.kp{animation:kp .9s ease-out 1 both}' +
-  '.kl{animation:lew 4s ease-in-out infinite}' +
-  `.kz{animation:znika ${KULE_KONIEC}s linear 1 forwards}` +
-  `.kw{animation:bielej ${KULE_KONIEC}s linear 1 forwards;opacity:0}` +
-  `.kr{opacity:0;animation:rozb ${KULE_KONIEC}s linear 1 forwards}` +
-  '@keyframes unos{0%,100%{transform:translate(0px,0px) rotate(0deg)}50%{transform:translate(1.4px,-1.8px) rotate(1deg)}}' +
-  '@keyframes przelot{' +
+  '.kl{animation:hover 4s ease-in-out infinite}' +
+  `.kz{animation:vanish ${BALLS_FINALE}s linear 1 forwards}` +
+  `.kw{animation:whiten ${BALLS_FINALE}s linear 1 forwards;opacity:0}` +
+  `.kr{opacity:0;animation:burst ${BALLS_FINALE}s linear 1 forwards}` +
+  '@keyframes drift{0%,100%{transform:translate(0px,0px) rotate(0deg)}50%{transform:translate(1.4px,-1.8px) rotate(1deg)}}' +
+  '@keyframes flyby{' +
   '0%,5%{transform:translate(0px,0px);animation-timing-function:cubic-bezier(.55,0,.85,.5)}' +
   '76%{transform:translate(150px,-5px)}' +
   '76.01%{transform:translate(-45px,7px);animation-timing-function:cubic-bezier(.2,.5,.4,1)}' +
   '100%{transform:translate(0px,0px)}}' +
-  '@keyframes fala{0%,100%{transform:translateY(-2.5px) rotate(-6deg)}50%{transform:translateY(3px) rotate(6deg)}}' +
+  '@keyframes wave{0%,100%{transform:translateY(-2.5px) rotate(-6deg)}50%{transform:translateY(3px) rotate(6deg)}}' +
   '@keyframes kame{0%{transform:scale(.2);opacity:.95}100%{transform:scale(2.6);opacity:0}}' +
   '@keyframes ssp{0%,100%{transform:scale(.85);opacity:.7}50%{transform:scale(1.25);opacity:1}}' +
   '@keyframes ssb{0%,100%{opacity:.05}50%{opacity:.2}}' +
   '.ss{transform-box:fill-box;transform-origin:center;animation:ssp .9s ease-in-out infinite}' +
   '.ssb{animation:ssb 1.6s ease-in-out infinite}' +
-  '@keyframes blysk{0%,100%{opacity:.25}50%{opacity:1}}' +
-  '@keyframes smok{0%{transform:translateX(-110px)}100%{transform:translateX(250px)}}' +
+  '@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}' +
+  '@keyframes dragon{0%{transform:translateX(-110px)}100%{transform:translateX(250px)}}' +
   shenCss() +
   '.gk,.fl,.kf{transform-box:fill-box;transform-origin:center}' +
-  '.idle .gk{animation:unos 6s ease-in-out infinite}' +
-  '.work .fl{animation:przelot 10s linear infinite}' +
-  '.work .gk{animation:fala 2.4s ease-in-out infinite}' +
+  '.idle .gk{animation:drift 6s ease-in-out infinite}' +
+  '.work .fl{animation:flyby 10s linear infinite}' +
+  '.work .gk{animation:wave 2.4s ease-in-out infinite}' +
   '.kf{animation:kame 1.8s ease-out forwards}' +
-  '.st{fill:#FFF6D8;animation:blysk 3.4s ease-in-out infinite}' +
-  `.sh{animation:smok ${SHEN_LOT}s linear 1 forwards}` +
+  '.st{fill:#FFF6D8;animation:twinkle 3.4s ease-in-out infinite}' +
+  `.sh{animation:dragon ${SHEN_FLIGHT}s linear 1 forwards}` +
   `.sb{animation:sb ${SHEN_T}s linear infinite}.sg{animation:sg ${SHEN_T}s linear infinite}.sr{animation:sr ${SHEN_T}s linear infinite}` +
   `.fg{transform-box:fill-box;transform-origin:0% 36.5%;animation:fg ${SHEN_T}s linear infinite}` +
-  RM_REGULA +
+  RM_RULE +
   '</style>'
 
-// shenronSek: ile sekund minęło od zebrania wszystkich kul (null = Shenron się nie pokazuje).
-type Grafika = 'zachod' | 'zmierzch' | 'noc'
-type Opis = { phase: string; grafika: Grafika; shenronSek: number | null; isFlying: boolean; kule: string; teraz: number; ssj: boolean }
+// shenronSec: seconds since all the balls were collected (null = Shenron is not shown).
+type Art = 'sunset' | 'dusk' | 'night'
+type SceneOpts = { phase: string; art: Art; shenronSec: number | null; isFlying: boolean; balls: string; nowMs: number; ssj: boolean }
 
-// Rozstrzyga, którą grafikę pokazać: wybór użytkownika albo pora dnia przy 'auto'
-// (zachód 6–19, zmierzch 19–22, noc 22–6).
-const grafikaFor = (wybor: string, hour: number): Grafika =>
-  wybor === 'zachod' || wybor === 'zmierzch' || wybor === 'noc'
-    ? wybor
+// Decides which artwork to show: the user's choice or the time of day for 'auto'
+// (sunset 6-19, dusk 19-22, night 22-6).
+const artFor = (choice: string, hour: number): Art =>
+  choice === 'sunset' || choice === 'dusk' || choice === 'night'
+    ? choice
     : hour >= 22 || hour < 6
-      ? 'noc'
+      ? 'night'
       : hour >= 19
-        ? 'zmierzch'
-        : 'zachod'
+        ? 'dusk'
+        : 'sunset'
 
-const TLA_SVG: Record<Grafika, string> = {
-  zachod: TLO_PATHS,
-  zmierzch: TLO_NOC_PATHS,
-  noc: TLO_GWIAZDY_PATHS,
+const ART_SVG: Record<Art, string> = {
+  sunset: SUNSET_PATHS,
+  dusk: DUSK_PATHS,
+  night: NIGHT_PATHS,
 }
 
-const sceneFor = (o: Opis): string => {
+const sceneFor = (o: SceneOpts): string => {
   const mode = o.phase === 'work' || o.isFlying ? 'work' : 'idle'
   const defs =
     '<defs><filter id="b" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="0.55"/></filter>' +
@@ -477,38 +490,38 @@ const sceneFor = (o: Opis): string => {
     '<linearGradient id="fg" gradientUnits="userSpaceOnUse" x1="0" y1="46" x2="0" y2="60"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>' +
     '<mask id="fm" maskUnits="userSpaceOnUse" x="-500" y="0" width="1200" height="90"><rect x="-500" y="0" width="1200" height="90" fill="url(#fg)"/></mask>' +
     '<radialGradient id="ssg"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/><stop offset=".35" stop-color="#FFE04A" stop-opacity=".85"/><stop offset="1" stop-color="#FFB000" stop-opacity="0"/></radialGradient>' +
-    '<radialGradient id="ki"><stop offset="0" stop-color="#FFF6C8"/><stop offset=".5" stop-color="#FFD25A" stop-opacity=".8"/><stop offset="1" stop-color="#FF9F1C" stop-opacity="0"/></radialGradient>' + KULE_DEFS + '</defs>'
+    '<radialGradient id="ki"><stop offset="0" stop-color="#FFF6C8"/><stop offset=".5" stop-color="#FFD25A" stop-opacity=".8"/><stop offset="1" stop-color="#FF9F1C" stop-opacity="0"/></radialGradient>' + BALL_DEFS + '</defs>'
 
   const night =
-    o.grafika === 'zmierzch'
-      ? '<rect x="0" y="0" width="180" height="90" fill="#12063A" opacity="0.14"/>' + STARS_ZMIERZCH
-      : o.grafika === 'noc'
-        ? STARS_NOC
+    o.art === 'dusk'
+      ? '<rect x="0" y="0" width="180" height="90" fill="#12063A" opacity="0.14"/>' + STARS_DUSK
+      : o.art === 'night'
+        ? STARS_NIGHT
         : ''
 
-  const ssjTlo = o.ssj ? '<rect class="ssb" x="0" y="0" width="180" height="90" fill="#FFD94F"/>' : ''
+  const ssjGlow = o.ssj ? '<rect class="ssb" x="0" y="0" width="180" height="90" fill="#FFD94F"/>' : ''
   const ssjAura = o.ssj ? '<circle class="ss" cx="34" cy="33" r="11" fill="url(#ssg)"/>' : ''
-  const shenron = o.shenronSek !== null && o.shenronSek < SHEN_LOT ? shenronFor(o.shenronSek) : ''
+  const shenron = o.shenronSec !== null && o.shenronSec < SHEN_FLIGHT ? shenronFor(o.shenronSec) : ''
   const kame = o.phase === 'done' ? '<g class="kf"><circle cx="34" cy="33" r="7" fill="url(#ki)"/></g>' : ''
 
   return (
-    // Noc przyciąga widok do góry, żeby przy szerokim oknie nie ucinać nieba.
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="1.8 1.5 172.4 81" preserveAspectRatio="${o.grafika === 'noc' ? 'xMidYMin' : 'xMidYMid'} slice">` +
+    // Night pins the view to the top so a wide window does not crop the sky.
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="1.8 1.5 172.4 81" preserveAspectRatio="${o.art === 'night' ? 'xMidYMin' : 'xMidYMid'} slice">` +
     defs +
-    (ruchZawsze ? STYLE.replace(RM_REGULA, '') : STYLE) +
-    `<g filter="url(#b)">${TLA_SVG[o.grafika]}</g>` +
+    (motionAlways ? STYLE.replace(RM_RULE, '') : STYLE) +
+    `<g filter="url(#b)">${ART_SVG[o.art]}</g>` +
     night +
-    ssjTlo +
+    ssjGlow +
     shenron +
-    `<g class="${mode}"><g class="fl" style="animation-delay:-${((o.teraz / 1000) % 10).toFixed(2)}s"><g class="gk" style="animation-delay:-${((o.teraz / 1000) % (mode === 'work' ? 2.4 : 6)).toFixed(2)}s">${ssjAura}<g transform="translate(29 28) scale(0.052)" filter="url(#g)">${o.ssj ? GOKU_SSJ : GOKU_PATHS}</g></g></g></g>` +
+    `<g class="${mode}"><g class="fl" style="animation-delay:-${((o.nowMs / 1000) % 10).toFixed(2)}s"><g class="gk" style="animation-delay:-${((o.nowMs / 1000) % (mode === 'work' ? 2.4 : 6)).toFixed(2)}s">${ssjAura}<g transform="translate(29 28) scale(0.052)" filter="url(#g)">${o.ssj ? GOKU_SSJ : GOKU_PATHS}</g></g></g></g>` +
     kame +
-    o.kule +
+    o.balls +
     '</svg>'
   )
 }
 
 // ---------------------------------------------------------------------------
-// Pomocnicze: stan listy zadań (smocze kule).
+// Helpers: task list state (Dragon Balls).
 // ---------------------------------------------------------------------------
 const applyPlan = (cur: readonly string[], input: Record<string, unknown>): string[] => {
   const s = Array.isArray(input.items)
@@ -544,178 +557,194 @@ const applyPlan = (cur: readonly string[], input: Record<string, unknown>): stri
 }
 
 
-type Teksty = {
+type Texts = {
   toast: Record<string, string>
-  styl: string
-  niemaRysowania: (powod: string) => string
-  opisAura: string
-  opisShenron: string
-  opisMoc: string
-  opisTlo: string
-  opisLang: string
-  shenronOdlecial: string
-  shenronPrzywolany: string
+  style: string
+  cannotDraw: (reason: string) => string
+  descAura: string
+  descShenron: string
+  descPower: string
+  descBackdrop: string
+  descLang: string
+  descSound: string
+  soundState: (globalOn: boolean, muted: string[], events: string) => string
+  soundUsage: (events: string) => string
+  soundSet: (what: string, enabled: boolean) => string
+  shenronLeft: string
+  shenronSummoned: string
   ssjTestOn: string
   ssjTestOff: string
-  blysk: string
-  ssjPodaj: string
-  progiPodaj: string
-  progiUstaw: (p: number[]) => string
-  ssjUstaw: (n: number) => string
+  flash: string
+  ssjUsage: string
+  thresholdsUsage: string
+  thresholdsSet: (p: number[]) => string
+  ssjSet: (n: number) => string
   reset: (p: number[], ssj: number) => string
-  stan: (pct: string, p: number[], ssj: number) => string
-  tloAktualne: (cur: string, lista: string) => string
-  tloNieznane: (arg: string, lista: string) => string
-  tlo: Record<string, string>
-  stylOn: string
-  stylOff: string
+  status: (pct: string, p: number[], ssj: number) => string
+  backdropCurrent: (cur: string, list: string) => string
+  backdropUnknown: (arg: string, list: string) => string
+  backdropText: Record<string, string>
+  styleOn: string
+  styleOff: string
   auraOn: string
   auraOff: string
   ssjToast: (n: number) => string
-  langUstaw: (l: string) => string
-  langPodaj: string
+  langSet: (l: string) => string
+  langUsage: string
   alt: string
-  rosnie: string
-  moc: string
-  ponad: string
-  ki: string
-  blad: string
-  trafil: string
+  rising: string
+  power: string
+  over9000: string
+  charging: string
+  failed: string
+  hit: string
 }
 
-const TXT: Record<Lang, Teksty> = {
+const TXT: Record<Lang, Texts> = {
   pl: {
     toast: {
-      koniec: 'Kamehameha! Tura zakończona.',
-      poziom: 'Poziom mocy: {n}',
-      kompakt: 'Kontekst skompresowany: moc spada.',
-      kula: 'Smocza kula zebrana: {n}',
+      end: 'Kamehameha! Tura zakończona.',
+      level: 'Poziom mocy: {n}',
+      compact: 'Kontekst skompresowany: moc spada.',
+      ball: 'Smocza kula zebrana: {n}',
       shenron: 'Wszystkie smocze kule zebrane! Shenron się pojawia.',
     },
-    styl:
+    style:
       'Dodatkowy styl (motyw Kinto Mode): odpowiadaj normalnie i rzeczowo, ale możesz od czasu do czasu ' +
       'dodać krótkie, lekkie nawiązanie do Dragon Ball (np. o „poziomie mocy” zadania). Nie wpływa to na treść techniczną.',
-    niemaRysowania: powod => `Goku: nie rysuje się: ${powod}`,
-    opisAura: 'Goku: /aura-kinto = lot ciągły, /aura-kinto styl = lekki styl Dragon Ball w odpowiedziach',
-    opisShenron: 'Goku: /shenron-kinto = przywołaj Shenrona (test), /shenron-kinto stop = odeślij',
-    opisMoc: 'Goku: /moc-kinto = stan mocy i progi; progi <4 liczby>, ssj <n>, reset; ssj / blysk = testy',
-    opisTlo: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc = wybór tła',
-    opisLang: 'Goku: /lang-kinto pl|en = język tekstów',
-    shenronOdlecial: 'Shenron odleciał.',
-    shenronPrzywolany: 'Shenron przywołany. Przelot trwa ok. 45 sekund.',
+    cannotDraw: reason => `Goku: nie rysuje się: ${reason}`,
+    descAura: 'Goku: /aura-kinto = lot ciągły, /aura-kinto style = lekki styl Dragon Ball w odpowiedziach',
+    descShenron: 'Goku: /shenron-kinto = przywołaj Shenrona (test), /shenron-kinto stop = odeślij',
+    descPower: 'Goku: /power-kinto = stan mocy i progi; thresholds <4 liczby>, ssj <n>, reset; ssj / flash = testy',
+    descBackdrop: 'Goku: /backdrop-kinto auto|sunset|dusk|night = wybór tła',
+    descLang: 'Goku: /lang-kinto pl|en = język tekstów',
+    descSound: 'Goku: /sound-kinto on|off = dźwięki; <event> on|off = pojedyncze',
+    soundState: (g, w, z) => `Dźwięki: ${g ? 'włączone' : 'wyłączone'}.${w.length > 0 ? ` Wyciszone: ${w.join(', ')}.` : ''} Zdarzenia: ${z}.`,
+    soundUsage: z => `Użyj: /sound-kinto on|off albo /sound-kinto <event> on|off (${z}).`,
+    soundSet: (c, w) => `Dźwięki (${c}): ${w ? 'włączone' : 'wyłączone'}.`,
+    shenronLeft: 'Shenron odleciał.',
+    shenronSummoned: 'Shenron przywołany. Przelot trwa ok. 45 sekund.',
     ssjTestOn: 'Super Saiyan (test) włączony.',
     ssjTestOff: 'Super Saiyan (test) wyłączony.',
-    blysk: 'Błysk paska mocy.',
-    ssjPodaj: 'Podaj próg 1–100, np. /moc-kinto ssj 40.',
-    progiPodaj: 'Podaj cztery rosnące progi 1–100, np. /moc-kinto progi 20 40 60 80.',
-    progiUstaw: p => `Progi mocy: ${p.join(', ')}%.`,
-    ssjUstaw: n => `Super Saiyan od ${n}%.`,
+    flash: 'Błysk paska mocy.',
+    ssjUsage: 'Podaj próg 1–100, np. /power-kinto ssj 40.',
+    thresholdsUsage: 'Podaj cztery rosnące progi 1–100, np. /power-kinto thresholds 20 40 60 80.',
+    thresholdsSet: p => `Progi mocy: ${p.join(', ')}%.`,
+    ssjSet: n => `Super Saiyan od ${n}%.`,
     reset: (p, ssj) => `Progi przywrócone do ustawień wtyczki: ${p.join(', ')}%, Super Saiyan od ${ssj}%.`,
-    stan: (pct, p, ssj) =>
+    status: (pct, p, ssj) =>
       `Moc ${pct}. Progi: ${p.join(', ')}%. Super Saiyan od ${ssj}%.\n` +
-      'Zmiana: /moc-kinto progi 20 40 60 80, /moc-kinto ssj 40, /moc-kinto reset. ' +
-      'Test: /moc-kinto ssj (bez liczby) albo /moc-kinto blysk.',
-    tloAktualne: (cur, lista) => `Tło: ${cur}. Wybierz: ${lista}. Przykład: /tlo-kinto zmierzch`,
-    tloNieznane: (arg, lista) => `Nie znam tła „${arg}". Dostępne: ${lista}.`,
-    tlo: {
-      auto: 'Tło: auto (zachód 6–19, zmierzch 19–22, noc 22–6).',
-      zachod: 'Tło: zachód słońca.',
-      zmierzch: 'Tło: zmierzch z gwiazdami.',
-      noc: 'Tło: gwiaździsta noc.',
+      'Zmiana: /power-kinto thresholds 20 40 60 80, /power-kinto ssj 40, /power-kinto reset. ' +
+      'Test: /power-kinto ssj (bez liczby) albo /power-kinto flash.',
+    backdropCurrent: (cur, list) => `Tło: ${cur}. Wybierz: ${list}. Przykład: /backdrop-kinto dusk`,
+    backdropUnknown: (arg, list) => `Nie znam tła „${arg}". Dostępne: ${list}.`,
+    backdropText: {
+      auto: 'Tło: auto (sunset 6-19, dusk 19-22, night 22-6).',
+      sunset: 'Tło: zachód słońca.',
+      dusk: 'Tło: zmierzch z gwiazdami.',
+      night: 'Tło: gwiaździsta noc.',
     },
-    stylOn: 'Styl Dragon Ball włączony.',
-    stylOff: 'Styl Dragon Ball wyłączony.',
+    styleOn: 'Styl Dragon Ball włączony.',
+    styleOff: 'Styl Dragon Ball wyłączony.',
     auraOn: 'Aura włączona: Goku leci cały czas.',
     auraOff: 'Aura wyłączona: Goku leci tylko, gdy Claude pracuje.',
     ssjToast: n => `SUPER SAIYAN! Moc przekroczyła ${n}%.`,
-    langUstaw: l => `Język: ${l}.`,
-    langPodaj: 'Podaj język: /lang-kinto pl albo /lang-kinto en.',
+    langSet: l => `Język: ${l}.`,
+    langUsage: 'Podaj język: /lang-kinto pl albo /lang-kinto en.',
     alt: 'Góry o zachodzie, pomarańczowe niebo, Goku w locie',
-    rosnie: 'MOC ROŚNIE',
-    moc: 'Moc',
-    ponad: ' (ponad 9000!)',
-    ki: '◌ ładowanie ki…',
-    blad: '✕ atak nieudany',
-    trafil: '● cios trafił',
+    rising: 'MOC ROŚNIE',
+    power: 'Moc',
+    over9000: ' (ponad 9000!)',
+    charging: '◌ ładowanie ki…',
+    failed: '✕ atak nieudany',
+    hit: '● cios trafił',
   },
   en: {
     toast: {
-      koniec: 'Kamehameha! Turn finished.',
-      poziom: 'Power level: {n}',
-      kompakt: 'Context compacted: power drops.',
-      kula: 'Dragon Ball collected: {n}',
+      end: 'Kamehameha! Turn finished.',
+      level: 'Power level: {n}',
+      compact: 'Context compacted: power drops.',
+      ball: 'Dragon Ball collected: {n}',
       shenron: 'All Dragon Balls collected! Shenron appears.',
     },
-    styl:
+    style:
       'Extra style (Kinto Mode theme): answer normally and factually, but you may occasionally ' +
       'add a short, light Dragon Ball reference (for example a task\'s "power level"). It does not affect the technical content.',
-    niemaRysowania: powod => `Goku: cannot draw: ${powod}`,
-    opisAura: 'Goku: /aura-kinto = continuous flight, /aura-kinto styl = light Dragon Ball style in replies',
-    opisShenron: 'Goku: /shenron-kinto = summon Shenron (test), /shenron-kinto stop = send him away',
-    opisMoc: 'Goku: /moc-kinto = power level and thresholds; progi <4 numbers>, ssj <n>, reset; ssj / blysk = tests',
-    opisTlo: 'Goku: /tlo-kinto auto|zachod|zmierzch|noc (sunset|dusk|night also work) = choose the backdrop',
-    opisLang: 'Goku: /lang-kinto pl|en = language of the texts',
-    shenronOdlecial: 'Shenron flew away.',
-    shenronPrzywolany: 'Shenron summoned. The flight takes about 45 seconds.',
+    cannotDraw: reason => `Goku: cannot draw: ${reason}`,
+    descAura: 'Goku: /aura-kinto = continuous flight, /aura-kinto style = light Dragon Ball style in replies',
+    descShenron: 'Goku: /shenron-kinto = summon Shenron (test), /shenron-kinto stop = send him away',
+    descPower: 'Goku: /power-kinto = power level and thresholds; thresholds <4 numbers>, ssj <n>, reset; ssj / flash = tests',
+    descBackdrop: 'Goku: /backdrop-kinto auto|sunset|dusk|night = choose the backdrop',
+    descLang: 'Goku: /lang-kinto pl|en = language of the texts',
+    descSound: 'Goku: /sound-kinto on|off = sounds; <event> on|off = single events',
+    soundState: (g, w, z) => `Sounds: ${g ? 'on' : 'off'}.${w.length > 0 ? ` Muted: ${w.join(', ')}.` : ''} Events: ${z}.`,
+    soundUsage: z => `Use: /sound-kinto on|off or /sound-kinto <event> on|off (${z}).`,
+    soundSet: (c, w) => `Sounds (${c}): ${w ? 'on' : 'off'}.`,
+    shenronLeft: 'Shenron flew away.',
+    shenronSummoned: 'Shenron summoned. The flight takes about 45 seconds.',
     ssjTestOn: 'Super Saiyan (test) on.',
     ssjTestOff: 'Super Saiyan (test) off.',
-    blysk: 'Power bar flash.',
-    ssjPodaj: 'Give a threshold 1–100, e.g. /moc-kinto ssj 40.',
-    progiPodaj: 'Give four increasing thresholds 1–100, e.g. /moc-kinto progi 20 40 60 80.',
-    progiUstaw: p => `Power thresholds: ${p.join(', ')}%.`,
-    ssjUstaw: n => `Super Saiyan from ${n}%.`,
+    flash: 'Power bar flash.',
+    ssjUsage: 'Give a threshold 1–100, e.g. /power-kinto ssj 40.',
+    thresholdsUsage: 'Give four increasing thresholds 1–100, e.g. /power-kinto thresholds 20 40 60 80.',
+    thresholdsSet: p => `Power thresholds: ${p.join(', ')}%.`,
+    ssjSet: n => `Super Saiyan from ${n}%.`,
     reset: (p, ssj) => `Thresholds back to the plugin settings: ${p.join(', ')}%, Super Saiyan from ${ssj}%.`,
-    stan: (pct, p, ssj) =>
+    status: (pct, p, ssj) =>
       `Power ${pct}. Thresholds: ${p.join(', ')}%. Super Saiyan from ${ssj}%.\n` +
-      'Change: /moc-kinto progi 20 40 60 80, /moc-kinto ssj 40, /moc-kinto reset. ' +
-      'Test: /moc-kinto ssj (no number) or /moc-kinto blysk.',
-    tloAktualne: (cur, lista) => `Backdrop: ${cur}. Choose: ${lista}. Example: /tlo-kinto zmierzch (or dusk)`,
-    tloNieznane: (arg, lista) => `Unknown backdrop "${arg}". Available: ${lista}.`,
-    tlo: {
+      'Change: /power-kinto thresholds 20 40 60 80, /power-kinto ssj 40, /power-kinto reset. ' +
+      'Test: /power-kinto ssj (no number) or /power-kinto flash.',
+    backdropCurrent: (cur, list) => `Backdrop: ${cur}. Choose: ${list}. Example: /backdrop-kinto dusk`,
+    backdropUnknown: (arg, list) => `Unknown backdrop "${arg}". Available: ${list}.`,
+    backdropText: {
       auto: 'Backdrop: auto (sunset 6–19, dusk 19–22, night 22–6).',
-      zachod: 'Backdrop: sunset.',
-      zmierzch: 'Backdrop: dusk with stars.',
-      noc: 'Backdrop: starry night.',
+      sunset: 'Backdrop: sunset.',
+      dusk: 'Backdrop: dusk with stars.',
+      night: 'Backdrop: starry night.',
     },
-    stylOn: 'Dragon Ball style on.',
-    stylOff: 'Dragon Ball style off.',
+    styleOn: 'Dragon Ball style on.',
+    styleOff: 'Dragon Ball style off.',
     auraOn: 'Aura on: Goku flies all the time.',
     auraOff: 'Aura off: Goku flies only while Claude works.',
     ssjToast: n => `SUPER SAIYAN! Power passed ${n}%.`,
-    langUstaw: l => `Language: ${l}.`,
-    langPodaj: 'Give a language: /lang-kinto pl or /lang-kinto en.',
+    langSet: l => `Language: ${l}.`,
+    langUsage: 'Give a language: /lang-kinto pl or /lang-kinto en.',
     alt: 'Mountains at sunset, orange sky, Goku in flight',
-    rosnie: 'POWER RISING',
-    moc: 'Power',
-    ponad: ' (over 9000!)',
-    ki: '◌ charging ki…',
-    blad: '✕ attack failed',
-    trafil: '● hit landed',
+    rising: 'POWER RISING',
+    power: 'Power',
+    over9000: ' (over 9000!)',
+    charging: '◌ charging ki…',
+    failed: '✕ attack failed',
+    hit: '● hit landed',
   },
 }
 
-const tx = async ($: Parameters<typeof read>[0]): Promise<Teksty> => TXT[await jez($)]
+const tx = async ($: Parameters<typeof read>[0]): Promise<Texts> => TXT[await getLang($)]
 
-// Aliasy angielskich nazw tła i podkomend (polskie nazwy zostają podstawowe).
+// Aliases: the Polish backdrop and subcommand names (the former names) work like the English ones.
 const ALIAS: Record<string, string> = {
-  sunset: 'zachod',
-  dusk: 'zmierzch',
-  night: 'noc',
-  thresholds: 'progi',
-  flash: 'blysk',
-  style: 'styl',
+  zachod: 'sunset',
+  zmierzch: 'dusk',
+  noc: 'night',
+  progi: 'thresholds',
+  blysk: 'flash',
+  styl: 'style',
+  koniec: 'end',
+  poziom: 'level',
+  kompakt: 'compact',
+  kula: 'ball',
 }
 
-const zastosujPlan = async ($: EngineInterface, before: readonly string[], after: string[]): Promise<void> => {
+const applyPlanState = async ($: EngineInterface, before: readonly string[], after: string[]): Promise<void> => {
   await update($, plan, () => after)
 
-  // Kule wokół czatu: ile ukończonych zadań, tyle (proporcjonalnie, maks. 7) kul.
-  // Zawsze 7 kul, rozłożonych równo między kroki (np. 3 kroki dają 2, 2 i 3 kule; ostatni krok dostaje resztę).
+  // Balls around the chat: as many as there are completed tasks (proportionally, max 7).
+  // Always 7 balls, spread evenly over the steps (e.g. 3 steps give 2, 2 and 3 balls; the last step gets the remainder).
   const N = after.length
-  const widoczne = N > 0 ? Math.floor((after.filter(s => s === 'completed').length * 7) / N) : 0
-  const teraz0 = await $.clock.now()
-  const stare = await read($, kuleAt)
-  await update($, kuleAt, () => Array.from({ length: widoczne }, (_, i) => stare[i] ?? teraz0))
+  const visible = N > 0 ? Math.floor((after.filter(s => s === 'completed').length * 7) / N) : 0
+  const nowMs0 = await $.clock.now()
+  const previous = await read($, ballsAt)
+  await update($, ballsAt, () => Array.from({ length: visible }, (_, i) => previous[i] ?? nowMs0))
 
   const was = before.filter(s => s === 'completed').length
   const now = after.filter(s => s === 'completed').length
@@ -723,30 +752,31 @@ const zastosujPlan = async ($: EngineInterface, before: readonly string[], after
   const wasAll = before.length > 0 && was === before.length
 
   if (now > was && !isAll) {
-    await reaguj($, 'kula', `${now}/${after.length}`)
+    await react($, 'ball', `${now}/${after.length}`)
   }
 
   if (isAll && !wasAll) {
-    const teraz = await $.clock.now()
-    await update($, shenronAt, () => teraz)
-    odswiezPoKulach($)
-    await reaguj($, 'shenron')
+    const nowMs = await $.clock.now()
+    await update($, shenronAt, () => nowMs)
+    refreshAfterBalls($)
+    await react($, 'shenron')
   } else if (!isAll) {
     await update($, shenronAt, () => 0)
   }
 }
 
 export const register: Register = (on, options) => {
-  opcje = {
-    p1: liczba(options.prog1, DOMYSLNE.p1),
-    p2: liczba(options.prog2, DOMYSLNE.p2),
-    p3: liczba(options.prog3, DOMYSLNE.p3),
-    p4: liczba(options.prog4, DOMYSLNE.p4),
-    ssj: liczba(options.progSsj, DOMYSLNE.ssj),
+  settings = {
+    p1: clampPct(options.threshold1, DEFAULTS.p1),
+    p2: clampPct(options.threshold2, DEFAULTS.p2),
+    p3: clampPct(options.threshold3, DEFAULTS.p3),
+    p4: clampPct(options.threshold4, DEFAULTS.p4),
+    ssj: clampPct(options.ssjThreshold, DEFAULTS.ssj),
   }
-  jezykOpcja = options.language === 'pl' ? 'pl' : 'en'
-  ruchZawsze = options.motion === 'always'
-  ramka = options.frame === 'sandbox'
+  langOption = options.language === 'pl' ? 'pl' : 'en'
+  motionAlways = options.motion === 'always'
+  soundOption = options.sounds !== 'off'
+  sandboxFrame = options.frame === 'sandbox'
 
   on('session.start', async ($, e, next) => {
     const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
@@ -757,60 +787,65 @@ export const register: Register = (on, options) => {
     const set = await $.theme.set(LOOK)
 
     if (!set.isDrawn) {
-      $.ui.toast((await tx($)).niemaRysowania(set.reason))
+      $.ui.toast((await tx($)).cannotDraw(set.reason))
     }
 
     const t = await tx($)
 
     await $.command.register({
       name: 'aura-kinto',
-      description: t.opisAura,
+      description: t.descAura,
     })
 
     await $.command.register({
       name: 'shenron-kinto',
-      description: t.opisShenron,
+      description: t.descShenron,
     })
 
     await $.command.register({
-      name: 'moc-kinto',
-      description: t.opisMoc,
+      name: 'power-kinto',
+      description: t.descPower,
     })
 
     await $.command.register({
-      name: 'tlo-kinto',
-      description: t.opisTlo,
+      name: 'backdrop-kinto',
+      description: t.descBackdrop,
     })
 
     await $.command.register({
       name: 'lang-kinto',
-      description: t.opisLang,
+      description: t.descLang,
+    })
+
+    await $.command.register({
+      name: 'sound-kinto',
+      description: t.descSound,
     })
 
     return next(e)
   })
 
-  // Test i zabawa: przywołuje Shenrona bez zbierania kul. /shenron-kinto stop kończy przelot.
+  // Test and fun: summons Shenron without collecting balls. /shenron-kinto stop ends the flight.
   on('command.run', { command: 'shenron-kinto' }, async ($, e) => {
     const t = await tx($)
 
     if (e.args.trim() === 'stop') {
       await update($, shenronAt, () => 0)
 
-      return { text: t.shenronOdlecial }
+      return { text: t.shenronLeft }
     }
     await update($, shenronAt, () => Date.now())
-    odswiezPoKulach($)
-    await reaguj($, 'shenron')
+    refreshAfterBalls($)
+    await react($, 'shenron')
 
-    return { text: t.shenronPrzywolany }
+    return { text: t.shenronSummoned }
   })
 
-  on('command.run', { command: 'moc-kinto' }, async ($, e) => {
+  on('command.run', { command: 'power-kinto' }, async ($, e) => {
     const t = await tx($)
     const arg0 = e.args.trim().toLowerCase()
-    const [w0 = '', ...reszta] = arg0.split(/\s+/)
-    const arg = [ALIAS[w0] ?? w0, ...reszta].join(' ').trim()
+    const [w0 = '', ...rest] = arg0.split(/\s+/)
+    const arg = [ALIAS[w0] ?? w0, ...rest].join(' ').trim()
     const pct = await read($, percent)
 
     if (arg === 'ssj') {
@@ -820,75 +855,75 @@ export const register: Register = (on, options) => {
       return { text: now ? t.ssjTestOn : t.ssjTestOff }
     }
 
-    if (arg === 'blysk') {
-      blyskMocy($)
+    if (arg === 'flash') {
+      flashPower($)
 
-      return { text: t.blysk }
+      return { text: t.flash }
     }
 
-    const cur = await progi($)
+    const cur = await getThresholds($)
 
     if (arg.startsWith('ssj ')) {
       const n = Number(arg.slice(4))
 
       if (!Number.isFinite(n) || n < 1 || n > 100) {
-        return { text: t.ssjPodaj }
+        return { text: t.ssjUsage }
       }
-      await update($, ssjNad, () => Math.round(n))
+      await update($, ssjOverride, () => Math.round(n))
 
-      return { text: t.ssjUstaw(Math.round(n)) }
+      return { text: t.ssjSet(Math.round(n)) }
     }
 
-    if (arg.startsWith('progi ')) {
-      const n = arg.slice(6).split(/[\s,]+/).filter(Boolean).map(Number)
+    if (arg.startsWith('thresholds ')) {
+      const n = arg.slice(11).split(/[\s,]+/).filter(Boolean).map(Number)
 
       if (n.length !== 4 || n.some(x => !Number.isFinite(x) || x < 1 || x > 100) || n.some((x, i) => i > 0 && x <= n[i - 1])) {
-        return { text: t.progiPodaj }
+        return { text: t.thresholdsUsage }
       }
-      const nowe = n.map(Math.round)
-      await update($, progiNad, () => nowe)
+      const updated = n.map(Math.round)
+      await update($, thresholdsOverride, () => updated)
 
-      return { text: t.progiUstaw(nowe) }
+      return { text: t.thresholdsSet(updated) }
     }
 
     if (arg === 'reset') {
-      await update($, progiNad, () => [])
-      await update($, ssjNad, () => 0)
-      const d = await progi($)
+      await update($, thresholdsOverride, () => [])
+      await update($, ssjOverride, () => 0)
+      const d = await getThresholds($)
 
       return { text: t.reset(d.p, d.ssj) }
     }
 
-    return { text: t.stan(moc(pct), cur.p, cur.ssj) }
+    return { text: t.status(power(pct), cur.p, cur.ssj) }
   })
 
-  on('command.run', { command: 'tlo-kinto' }, async ($, e) => {
+  on('command.run', { command: 'backdrop-kinto' }, async ($, e) => {
     const t = await tx($)
     const arg0 = e.args.trim().toLowerCase()
     const arg = ALIAS[arg0] ?? arg0
-    const cur = await read($, tlo)
+    const cur = await read($, backdropChoice)
 
     if (arg === '') {
-      return { text: t.tloAktualne(cur, TLA.join(', ')) }
+      return { text: t.backdropCurrent(cur, BACKDROPS.join(', ')) }
     }
 
-    if (!(TLA as readonly string[]).includes(arg)) {
-      return { text: t.tloNieznane(arg0, TLA.join(', ')) }
+    if (!(BACKDROPS as readonly string[]).includes(arg)) {
+      return { text: t.backdropUnknown(arg0, BACKDROPS.join(', ')) }
     }
-    await update($, tlo, () => arg as Tlo)
+    await update($, backdropChoice, () => arg as BackdropChoice)
 
-    return { text: t.tlo[arg] ?? '' }
+    return { text: t.backdropText[arg] ?? '' }
   })
 
   on('command.run', { command: 'aura-kinto' }, async ($, e) => {
     const t = await tx($)
     const arg = e.args.trim().toLowerCase()
 
-    if (arg === 'styl' || arg === 'style') {
+    if (arg === 'style') {
       const now = !(await read($, isStyled))
       await update($, isStyled, () => now)
 
-      return { text: now ? t.stylOn : t.stylOff }
+      return { text: now ? t.styleOn : t.styleOff }
     }
     const now = !(await read($, isFlying))
     await update($, isFlying, () => now)
@@ -900,50 +935,86 @@ export const register: Register = (on, options) => {
     const arg = e.args.trim().toLowerCase()
 
     if (arg !== 'pl' && arg !== 'en') {
-      return { text: (await tx($)).langPodaj }
+      return { text: (await tx($)).langUsage }
     }
-    await update($, jezykNad, () => arg)
+    await update($, langOverride, () => arg)
 
-    return { text: TXT[arg].langUstaw(arg) }
+    return { text: TXT[arg].langSet(arg) }
+  })
+
+  on('command.run', { command: 'sound-kinto' }, async ($, e) => {
+    const t = await tx($)
+    const events = Object.keys(EVENTS).join(', ')
+    const [w0 = '', w1 = ''] = e.args.trim().toLowerCase().split(/\s+/)
+    const override = await read($, soundOverride)
+    const globalOn = override === 'on' ? true : override === 'off' ? false : soundOption
+    const muted = await read($, mutedOverride)
+
+    if (w0 === '') {
+      return { text: t.soundState(globalOn, muted, events) }
+    }
+
+    if (w0 === 'on' || w0 === 'off') {
+      await update($, soundOverride, () => w0)
+
+      if (w0 === 'on') {
+        await update($, mutedOverride, () => [])
+      }
+
+      return { text: t.soundSet('all', w0 === 'on') }
+    }
+    const ev = ALIAS[w0] ?? w0
+
+    if (!(ev in EVENTS) || (w1 !== 'on' && w1 !== 'off')) {
+      return { text: t.soundUsage(events) }
+    }
+    const rest = muted.filter(x => x !== ev)
+    await update($, mutedOverride, () => (w1 === 'off' ? [...rest, ev] : rest))
+
+    if (w1 === 'on' && !globalOn) {
+      await update($, soundOverride, () => 'on')
+    }
+
+    return { text: t.soundSet(ev, w1 === 'on') }
   })
 
   on('turn.start', async ($, e, next) => {
     await update($, phase, () => 'work')
-    await reaguj($, 'start')
+    await react($, 'start')
 
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     await update($, phase, () => 'done')
-    await reaguj($, 'koniec')
+    await react($, 'end')
 
     return next(e)
   })
 
   on('session.measure', async ($, e, next) => {
-    // e.context.percent liczy względem całego okna modelu (np. 1M), a aplikacja pokazuje
-    // użycie względem okna kompresji (np. 500k). Bierzemy to samo, co aplikacja: breakdown.
+    // e.context.percent is relative to the whole model window (e.g. 1M), while the app shows
+    // usage relative to the compaction window (e.g. 500k). We take the same as the app: the breakdown.
     let raw = e.context.percent
 
     try {
       const usage = await $.session.usage({ breakdown: 'summary' })
       raw = usage.context.breakdown?.percentage ?? raw
     } catch {
-      // zostaje procent z pomiaru
+      // keep the percentage from the measurement
     }
 
     if (raw !== undefined) {
       const pct = Math.round(raw)
       const prev = await read($, level)
       const prevPct = await read($, percent)
-      const cfg = await progi($)
-      const lv = poziomZ(pct, cfg.p)
+      const cfg = await getThresholds($)
+      const lv = levelFrom(pct, cfg.p)
       await update($, percent, () => pct)
 
       if (lv > prev) {
-        await reaguj($, 'poziom', moc(pct))
-        blyskMocy($)
+        await react($, 'level', power(pct))
+        flashPower($)
       }
 
       if (pct >= cfg.ssj && prevPct < cfg.ssj) {
@@ -953,18 +1024,18 @@ export const register: Register = (on, options) => {
       if (lv !== prev) {
         await update($, level, () => lv)
       }
-      $.ui.status(`${(await tx($)).moc} ${moc(pct)}`)
+      $.ui.status(`${(await tx($)).power} ${power(pct)}`)
     }
 
     return next(e)
   })
 
   on('session.compact', async ($, e, next) => {
-    const wynik = await next(e)
+    const result = await next(e)
 
-    // Pomiar (session.measure) przychodzi dopiero przy następnej turze, więc pasek
-    // trzymałby starą wartość. Po udanej kompresji przeliczamy moc od razu.
-    if (wynik && 'messages' in wynik && wynik.messages) {
+    // The measurement (session.measure) only arrives on the next turn, so the bar
+    // would keep the old value. After a successful compaction we recompute the power right away.
+    if (result && 'messages' in result && result.messages) {
       const prev = await read($, percent)
       let pct: number | undefined
 
@@ -972,45 +1043,45 @@ export const register: Register = (on, options) => {
         const usage = await $.session.usage({ breakdown: 'summary' })
         const p = usage.context.breakdown?.percentage
 
-        // Zwykłe użycie może jeszcze zwracać stan sprzed kompresji: wtedy liczymy z proporcji.
+        // Plain usage may still return the pre-compaction state: then we compute from the proportion.
         if (p !== undefined && p < prev) {
           pct = Math.round(p)
         }
       } catch {
-        // zostaje szacunek
+        // keep the estimate
       }
 
-      if (pct === undefined && wynik.tokensBefore && wynik.tokensAfter !== undefined) {
-        pct = Math.round(prev * (wynik.tokensAfter / wynik.tokensBefore))
+      if (pct === undefined && result.tokensBefore && result.tokensAfter !== undefined) {
+        pct = Math.round(prev * (result.tokensAfter / result.tokensBefore))
       }
 
       if (pct !== undefined) {
-        const lv = poziomZ(pct, (await progi($)).p)
+        const lv = levelFrom(pct, (await getThresholds($)).p)
         await update($, percent, () => pct as number)
         await update($, level, () => lv)
-        $.ui.status(`${(await tx($)).moc} ${moc(pct)}`)
+        $.ui.status(`${(await tx($)).power} ${power(pct)}`)
       }
 
-      await reaguj($, 'kompakt')
+      await react($, 'compact')
     }
 
-    return wynik
+    return result
   })
 
   on('tool.call', { tool: PLAN_TOOL }, async ($, e, next) => {
     const before = await read($, plan)
-    await zastosujPlan($, before, applyPlan(before, e as unknown as Record<string, unknown>))
+    await applyPlanState($, before, applyPlan(before, e as unknown as Record<string, unknown>))
 
     return next(e)
   })
 
-  // Ostatni krok zwykle zamyka dopiero wrap_up (sam odhacza listę), a nie update_plan,
-  // więc bez tego ostatnia kula nigdy by nie wskoczyła, a krok zostawał jako "…".
+  // The last step is usually closed only by wrap_up (it ticks the list off itself), not by update_plan,
+  // so without this the last ball would never appear and the step would stay as "…".
   on('tool.call', { tool: 'mcp__ccd_turn__wrap_up' }, async ($, e, next) => {
     const before = await read($, plan)
 
     if (before.length > 0 && before.some(s => s !== 'completed')) {
-      await zastosujPlan($, before, before.map(() => 'completed'))
+      await applyPlanState($, before, before.map(() => 'completed'))
     }
 
     return next(e)
@@ -1023,7 +1094,7 @@ export const register: Register = (on, options) => {
       return out
     }
 
-    return { ...out, sections: [...out.sections, { id: 'goku:styl', text: (await tx($)).styl, scope: 'session' as const }] }
+    return { ...out, sections: [...out.sections, { id: 'goku:style', text: (await tx($)).style, scope: 'session' as const }] }
   })
 
   on('ui.render', { component: 'Backdrop' }, async ($, e, next) => {
@@ -1032,28 +1103,28 @@ export const register: Register = (on, options) => {
     }
 
     const { Svg } = $.ui.resolve(e)
-    const teraz = await $.clock.now()
-    const hour = new Date(teraz).getHours()
-    const kiedy = await read($, shenronAt)
+    const nowMs = await $.clock.now()
+    const hour = new Date(nowMs).getHours()
+    const since = await read($, shenronAt)
 
-    const minelo = kiedy > 0 ? Math.max(0, (teraz - kiedy) / 1000) : null
-    const lista = await read($, plan)
-    const czasy = await read($, kuleAt)
-    await read($, odswiez)
-    // Finał kul (bielenie, rozbłysk, zniknięcie) trwa KULE_KONIEC sekund, potem wypływa Shenron.
-    const kule = kuleFor(teraz, czasy, minelo, 7)
+    const elapsed = since > 0 ? Math.max(0, (nowMs - since) / 1000) : null
+    const list = await read($, plan)
+    const times = await read($, ballsAt)
+    await read($, refresh)
+    // The ball finale (whitening, flash, vanishing) lasts BALLS_FINALE seconds, then Shenron appears.
+    const balls = ballsFor(nowMs, times, elapsed, 7)
 
     const source = sceneFor({
       phase: await read($, phase),
-      grafika: grafikaFor(await read($, tlo), hour),
-      shenronSek: minelo === null || minelo < KULE_KONIEC ? null : minelo - KULE_KONIEC,
+      art: artFor(await read($, backdropChoice), hour),
+      shenronSec: elapsed === null || elapsed < BALLS_FINALE ? null : elapsed - BALLS_FINALE,
       isFlying: await read($, isFlying),
-      kule,
-      teraz,
-      ssj: (await read($, percent)) >= (await progi($)).ssj || (await read($, ssjTest)),
+      balls,
+      nowMs,
+      ssj: (await read($, percent)) >= (await getThresholds($)).ssj || (await read($, ssjTest)),
     })
 
-    return <Svg source={source} alt={(await tx($)).alt} isInteractive={ramka} />
+    return <Svg source={source} alt={(await tx($)).alt} isInteractive={sandboxFrame} />
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -1066,20 +1137,20 @@ export const register: Register = (on, options) => {
     const pct = await read($, percent)
     const filled = Math.max(0, Math.min(20, Math.round(pct / 5)))
     const bar = '█'.repeat(filled) + '░'.repeat(20 - filled)
-    const klatka = await read($, mocBlysk)
-    const cfg = await progi($)
+    const step = await read($, powerFlash)
+    const cfg = await getThresholds($)
     const ssj = pct >= cfg.ssj || (await read($, ssjTest))
 
-    // Po awansie na wyższy poziom pasek przez kilka sekund miga i ma ramkę z iskrami,
-    // żeby było widać, że dźwięk dotyczy wzrostu mocy. Bez ruchu (klatka 0) wraca do zwykłego wyglądu.
-    if (klatka > 0) {
-      const kolory = ['#FFD94F', '#FFFFFF', '#FF9800', '#FFFFFF']
-      const kolor = kolory[klatka % kolory.length]
-      const iskry = klatka % 2 === 0 ? '⚡' : '✦'
+    // After reaching a higher level the bar blinks for a few seconds and has a border with sparks,
+    // so it is clear that the sound is about a power increase. Without motion (step 0) it returns to its normal look.
+    if (step > 0) {
+      const palette = ['#FFD94F', '#FFFFFF', '#FF9800', '#FFFFFF']
+      const color = palette[step % palette.length]
+      const sparks = step % 2 === 0 ? '⚡' : '✦'
       return (
         <Box>
-          <Text color={kolor} bold backgroundColor={klatka % 2 === 0 ? '#C25A00' : '#8A3F00'}>
-            {` ${iskry} ${t.rosnie} ${moc(pct)} ${bar} ${iskry} `}
+          <Text color={color} bold backgroundColor={step % 2 === 0 ? '#C25A00' : '#8A3F00'}>
+            {` ${sparks} ${t.rising} ${power(pct)} ${bar} ${sparks} `}
           </Text>
         </Box>
       )
@@ -1089,7 +1160,7 @@ export const register: Register = (on, options) => {
       return (
         <Box>
           <Text color="#FFE04A" bold backgroundColor="#8A3F00">
-            {` ⚡ SUPER SAIYAN ${moc(pct)} ${bar} ⚡ `}
+            {` ⚡ SUPER SAIYAN ${power(pct)} ${bar} ⚡ `}
           </Text>
         </Box>
       )
@@ -1098,8 +1169,8 @@ export const register: Register = (on, options) => {
     return (
       <Box>
         <Text color="#F57C00">
-          {t.moc} {moc(pct)}
-          {pct >= cfg.p[3] ? t.ponad : ''} {bar}
+          {t.power} {power(pct)}
+          {pct >= cfg.p[3] ? t.over9000 : ''} {bar}
         </Text>
       </Box>
     )
@@ -1114,7 +1185,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column">
         {row}
         <Text color={e.isErrored ? '#C62828' : '#F57C00'} dimColor={!e.isRunning}>
-          {e.isRunning ? t.ki : e.isErrored ? t.blad : t.trafil}
+          {e.isRunning ? t.charging : e.isErrored ? t.failed : t.hit}
         </Text>
       </Box>
     )

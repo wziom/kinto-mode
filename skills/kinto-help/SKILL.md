@@ -24,25 +24,28 @@ Answer in the user's language. Present the sections below as a compact, scannabl
 | Command | Effect |
 | --- | --- |
 | `/aura-kinto` | Toggles continuous flight (Goku flies all the time). |
-| `/aura-kinto styl` | Toggles a light Dragon Ball style in Claude's replies (off by default). |
-| `/tlo-kinto` | Shows the current backdrop. Arguments: `zachod` (sunset), `zmierzch` (dusk), `noc` (night), `auto`. English aliases work too. |
-| `/moc-kinto` | Shows power level and thresholds. |
-| `/moc-kinto progi 20 40 60 80` | Sets the four power thresholds (increasing, 1-100) for this session. |
-| `/moc-kinto ssj 40` | Sets where Super Saiyan starts, for this session. |
-| `/moc-kinto reset` | Returns thresholds to the plugin settings. |
-| `/moc-kinto ssj` | Toggles a Super Saiyan preview (test). |
-| `/moc-kinto blysk` | Triggers the power bar flash (test). |
+| `/aura-kinto style` | Toggles a light Dragon Ball style in Claude's replies (off by default). |
+| `/backdrop-kinto` | Shows the current backdrop. Arguments: `sunset`, `dusk`, `night`, `auto` (the Polish names `zachod`, `zmierzch`, `noc` still work). |
+| `/power-kinto` | Shows power level and thresholds. |
+| `/power-kinto thresholds 20 40 60 80` | Sets the four power thresholds (increasing, 1-100) for this session. |
+| `/power-kinto ssj 40` | Sets where Super Saiyan starts, for this session. |
+| `/power-kinto reset` | Returns thresholds to the plugin settings. |
+| `/power-kinto ssj` | Toggles a Super Saiyan preview (test). |
+| `/power-kinto flash` | Triggers the power bar flash (test). |
 | `/shenron-kinto` | Summons Shenron without collecting balls (test); `/shenron-kinto stop` sends him away. |
 | `/lang-kinto pl` or `en` | Switches the language of in-app texts for this session. |
+| `/sound-kinto on` / `off` | Turns all event sounds on or off for this session (toasts stay). |
+| `/sound-kinto <event> on` / `off` | Mutes or unmutes one event: `start`, `end`, `level`, `compact`, `ball`, `shenron`. Without arguments it shows the state. |
 | `/goku:kinto-help` | This overview. |
 
 ## Plugin settings (permanent)
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
+| `sounds` | `on` or `off`: event sounds (toasts stay either way). | `on` |
 | `language` | `en` or `pl`: language of toasts, captions, the bar and command replies. | `en` |
-| `prog1`-`prog4` | The four power level thresholds (%). | 25, 50, 75, 90 |
-| `progSsj` | Context usage (%) at which Super Saiyan starts. | 50 |
+| `threshold1`-`threshold4` | The four power level thresholds (%). | 25, 50, 75, 90 |
+| `ssjThreshold` | Context usage (%) at which Super Saiyan starts. | 50 |
 | `frame` | `image` (default) or `sandbox`: how the backdrop is drawn. Try `sandbox` if animations stand still (reported on macOS desktop). | `image` |
 | `motion` | `system` respects the OS "Reduce motion" setting (animations freeze when it is on); `always` animates regardless. | `system` |
 
@@ -54,5 +57,5 @@ Session commands override these until the session ends.
 - **Sound:** plays with `afplay` on macOS and through PowerShell on Windows; on Linux it may stay silent. Toasts always work.
 - **Dragon Balls** are counted from the desktop app's task list; other clients may not light them up.
 - The backdrop SVG is near the engine's size limit, so the scene is a painterly mosaic, not a photograph.
-- Command arguments are Polish (`zachod`, `zmierzch`, `noc`, `progi`, `styl`, `blysk`) with English aliases (`sunset`, `dusk`, `night`, `thresholds`, `style`, `flash`).
+- Command arguments are English (`sunset`, `dusk`, `night`, `thresholds`, `style`, `flash`); the former Polish names (`zachod`, `zmierzch`, `noc`, `progi`, `styl`, `blysk`) still work as aliases.
 - Sounds are generated locally in ComfyUI. Dragon Ball belongs to its creators; this is a fan theme.

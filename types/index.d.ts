@@ -6,16 +6,18 @@ declare module 'claude-code' {
       level: number
       plan: Shaped<string[]>
       shenronAt: number
-      kuleAt: Shaped<number[]>
-      odswiez: number
-      mocBlysk: number
+      ballsAt: Shaped<number[]>
+      refresh: number
+      powerFlash: number
       ssjTest: boolean
-      progiNad: Shaped<number[]>
-      ssjNad: number
-      jezykNad: string
+      thresholdsOverride: Shaped<number[]>
+      ssjOverride: number
+      langOverride: string
+      soundOverride: string
+      mutedOverride: Shaped<string[]>
       isFlying: boolean
       isStyled: boolean
-      tlo: string
+      backdropChoice: string
     }
   }
 }

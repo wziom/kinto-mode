@@ -7,11 +7,12 @@
   "userConfig": {
     "frame": { "type": "string", "title": "Backdrop rendering", "description": "image = draw the backdrop as an image (default); sandbox = draw it in a sandboxed frame. Try sandbox if animations stand still (for example on macOS).", "default": "image", "options": ["image", "sandbox"] },
     "motion": { "type": "string", "title": "Animations", "description": "system = respect the operating system's Reduce motion setting (animations freeze when it is on); always = animate regardless.", "default": "system", "options": ["system", "always"] },
+    "sounds": { "type": "string", "title": "Sounds", "description": "on = play event sounds; off = silent (toasts still show). Per session: /sound-kinto.", "default": "on", "options": ["on", "off"] },
     "language": { "type": "string", "title": "Language", "description": "Language of in-app texts (toasts, captions, bar, command replies).", "default": "en", "options": ["en", "pl"] },
-    "prog1": { "type": "number", "title": "Power level 1 threshold (%)", "description": "First power level (sound, toast, bar flash).", "default": 25, "min": 1, "max": 100 },
-    "prog2": { "type": "number", "title": "Power level 2 threshold (%)", "description": "Second power level.", "default": 50, "min": 1, "max": 100 },
-    "prog3": { "type": "number", "title": "Power level 3 threshold (%)", "description": "Third power level.", "default": 75, "min": 1, "max": 100 },
-    "prog4": { "type": "number", "title": "Power level 4 threshold (%)", "description": "Fourth power level; from here the bar adds 'over 9000!'.", "default": 90, "min": 1, "max": 100 },
-    "progSsj": { "type": "number", "title": "Super Saiyan from (%)", "description": "Context usage at which Super Saiyan starts (gold bar, aura, glowing backdrop).", "default": 50, "min": 1, "max": 100 }
+    "threshold1": { "type": "number", "title": "Power level 1 threshold (%)", "description": "First power level (sound, toast, bar flash).", "default": 25, "min": 1, "max": 100 },
+    "threshold2": { "type": "number", "title": "Power level 2 threshold (%)", "description": "Second power level.", "default": 50, "min": 1, "max": 100 },
+    "threshold3": { "type": "number", "title": "Power level 3 threshold (%)", "description": "Third power level.", "default": 75, "min": 1, "max": 100 },
+    "threshold4": { "type": "number", "title": "Power level 4 threshold (%)", "description": "Fourth power level; from here the bar adds 'over 9000!'.", "default": 90, "min": 1, "max": 100 },
+    "ssjThreshold": { "type": "number", "title": "Super Saiyan from (%)", "description": "Context usage at which Super Saiyan starts (gold bar, aura, glowing backdrop).", "default": 50, "min": 1, "max": 100 }
   }
 }
