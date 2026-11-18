@@ -83,6 +83,7 @@ Commands end in `-kinto` so they do not clash with other plugins' commands.
 
 The defaults are 25, 50, 75 and 90% for the four power levels and 50% for Super Saiyan. To change them permanently, edit the plugin's options (`prog1`–`prog4` and `progSsj`, shown when you install the plugin and in its settings). The commands above override them until the session ends.
 | `/lang-kinto pl` / `en` | Switches the language of in-app texts for the current session. |
+| `/goku:kinto-help` | A skill: lists everything the plugin can do (features, commands, settings, limitations). |
 | `/shenron-kinto` | Summons Shenron without collecting balls (for testing). `/shenron-kinto stop` sends him away. |
 
 ## Event configuration
@@ -107,6 +108,10 @@ const EVENTY: Record<string, Reakcja> = {
 ## Language
 
 In-app texts are available in English (default) and Polish. Set the `language` option in the plugin settings for a permanent choice, or run `/lang-kinto pl` or `/lang-kinto en` to switch for the current session.
+
+## Animations
+
+All motion is CSS and respects the system "Reduce motion" accessibility setting: when it is on (common on macOS), every animation freezes. Either turn that setting off, or set the plugin option `motion` to `always` to animate regardless.
 
 All sounds were generated locally in ComfyUI (effects: Stable Audio Open, Shenron theme: ACE-Step 1.5) and lightly processed (filter, saturation, short reverb). They use nobody's recordings. Stable Audio Open has its own licence (Stability AI Community License): commercial use requires registration with Stability AI above the revenue thresholds it sets.
 
@@ -142,6 +147,7 @@ hooks/tlo-gwiazdy-svg.ts          starry night backdrop as an SVG mosaic
 hooks/goku-svg.ts                 Goku on the Flying Nimbus as a vector outline
 hooks/ssj-wlosy-svg.ts            Super Saiyan hair (ComfyUI image, vectorised)
 hooks/shenron-svg.ts              Shenron's head as a vector outline (the body is drawn by register.tsx)
+skills/kinto-help/SKILL.md          skill that lists everything the plugin can do
 sounds/                           short event sounds
 docs/                             preview images used in this README
 types/index.d.ts                  plugin state contract

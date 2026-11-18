@@ -379,6 +379,12 @@ const GOKU_SSJ = (() => {
   )
 })()
 
+// Gdy system ma włączone ograniczenie ruchu (np. macOS: Reduce motion), przeglądarka zatrzymuje wszystkie animacje.
+// Opcja motion=always pomija tę regułę i animuje zawsze.
+const RM_REGULA =
+  '@media (prefers-reduced-motion:reduce){.gk,.fl,.kf,.st,.sh,.sb,.sg,.sr,.fg,.kp,.kl,.kz,.kw,.kr,.ss,.ssb{animation:none!important}}'
+let ruchZawsze = false
+
 const STYLE =
   '<style>' +
   '@keyframes kp{0%{transform:scale(0);opacity:0}60%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:1}}' +
@@ -416,7 +422,7 @@ const STYLE =
   `.sh{animation:smok ${SHEN_LOT}s linear 1 forwards}` +
   `.sb{animation:sb ${SHEN_T}s linear infinite}.sg{animation:sg ${SHEN_T}s linear infinite}.sr{animation:sr ${SHEN_T}s linear infinite}` +
   `.fg{transform-box:fill-box;transform-origin:0% 36.5%;animation:fg ${SHEN_T}s linear infinite}` +
-  '@media (prefers-reduced-motion:reduce){.gk,.fl,.kf,.st,.sh,.sb,.sg,.sr,.fg,.kp,.kl,.kz,.kw,.kr,.ss,.ssb{animation:none!important}}' +
+  RM_REGULA +
   '</style>'
 
 // shenronSek: ile sekund minęło od zebrania wszystkich kul (null = Shenron się nie pokazuje).
@@ -469,7 +475,7 @@ const sceneFor = (o: Opis): string => {
     // Noc przyciąga widok do góry, żeby przy szerokim oknie nie ucinać nieba.
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="1.8 1.5 172.4 81" preserveAspectRatio="${o.grafika === 'noc' ? 'xMidYMin' : 'xMidYMid'} slice">` +
     defs +
-    STYLE +
+    (ruchZawsze ? STYLE.replace(RM_REGULA, '') : STYLE) +
     `<g filter="url(#b)">${TLA_SVG[o.grafika]}</g>` +
     night +
     ssjTlo +
@@ -689,6 +695,7 @@ export const register: Register = (on, options) => {
     ssj: liczba(options.progSsj, DOMYSLNE.ssj),
   }
   jezykOpcja = options.language === 'pl' ? 'pl' : 'en'
+  ruchZawsze = options.motion === 'always'
 
   on('session.start', async ($, e, next) => {
     const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
