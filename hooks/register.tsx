@@ -105,7 +105,7 @@ const blyskMocy = ($: EngineInterface, klatka = 1): void => {
 }
 // Test: wymuszony Super Saiyan (/moc-kinto ssj), niezależnie od poziomu mocy.
 const ssjTest = atom({ plugin: 'goku', key: 'ssjTest' } as const, false)
-const SSJ_PROG = 90
+const SSJ_PROG = 50
 const isFlying = atom({ plugin: 'goku', key: 'isFlying' } as const, false)
 const isStyled = atom({ plugin: 'goku', key: 'isStyled' } as const, false)
 // Wybrane tło: 'auto' (według pory dnia), 'zachod', 'zmierzch' albo 'noc'.
@@ -629,6 +629,7 @@ export const register: Register = on => {
     if (raw !== undefined) {
       const pct = Math.round(raw)
       const prev = await read($, level)
+      const prevPct = await read($, percent)
       const lv = pct >= 90 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct >= 25 ? 1 : 0
       await update($, percent, () => pct)
 
@@ -636,8 +637,8 @@ export const register: Register = on => {
         await reaguj($, 'poziom', moc(pct))
         blyskMocy($)
 
-        if (lv === 4) {
-          $.ui.toast('SUPER SAIYAN! Moc przekroczyła 90%.')
+        if (pct >= SSJ_PROG && prevPct < SSJ_PROG) {
+          $.ui.toast(`SUPER SAIYAN! Moc przekroczyła ${SSJ_PROG}%.`)
         }
       }
 

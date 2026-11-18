@@ -17,7 +17,7 @@ A Dragon Ball–themed mod for Claude: orange palette (light by day, dark by nig
 | **Flying Goku** | Idle: he hovers in the distance. While Claude works he takes off, crosses the scene, returns from the left and brakes at home. |
 | **Kamehameha** | When a turn finishes, Goku fires a one-off flash. |
 | **Power level** | A bar above the prompt shows the session's context usage as a percentage, the same as the app's context panel (relative to the compaction window). At 25, 50, 75 and 90% there is a sound and a toast, and the bar flashes. Above 90% it adds "over 9000!". The value is also in the status line. |
-| **Super Saiyan** | From 90% context usage the bar turns gold ("SUPER SAIYAN"), a golden aura pulses around Goku and the whole backdrop glows. A toast announces it. |
+| **Super Saiyan** | From 50% context usage the bar turns gold ("SUPER SAIYAN"), a golden aura pulses around Goku and the whole backdrop glows. A toast announces it. |
 | **Dragon Balls** | Each completed step of the task list summons a yellow-orange ball with red stars (1–7) that hovers around the chat, alternating left and right. There are always seven, spread evenly across the steps (3 steps give 2, 2 and 3 balls). When the list is complete the balls turn white, flash and vanish, and Shenron appears. |
 | **Shenron** | After all tasks are done a green dragon flies once across the sky (about 45 seconds). It is untangled into a sine wave: the body is a smooth ribbon animated frame by frame in CSS, with the head (vectorised from a ComfyUI image) nodding along. It then disappears until you collect the balls again. |
 | **Three backdrops** | Sunset (6–19 h), dusk with a purple sky (19–22 h) and a starry night (22–6 h). `auto` picks by time of day; force one with `/tlo-kinto`. |
@@ -73,7 +73,7 @@ Commands end in `-kinto` so they do not clash with other plugins' commands.
 | `/aura-kinto` | Toggles continuous flight: Goku flies all the time, not only while Claude works. |
 | `/aura-kinto styl` | Toggles a light Dragon Ball style in replies. Answers stay factual, with an occasional short reference such as a task's "power level". Off by default. |
 | `/tlo-kinto` | Shows the current backdrop. `/tlo-kinto zachod` (sunset), `zmierzch` (dusk) or `noc` (night) forces one, `/tlo-kinto auto` returns to time-of-day selection. The current session remembers the choice. |
-| `/moc-kinto` | Shows the power level. `/moc-kinto ssj` toggles a Super Saiyan test, `/moc-kinto blysk` triggers the power-up bar flash, so you can see them without waiting for 90%. |
+| `/moc-kinto` | Shows the power level. `/moc-kinto ssj` toggles a Super Saiyan test, `/moc-kinto blysk` triggers the power-up bar flash, so you can see them without waiting for 50%. |
 | `/shenron-kinto` | Summons Shenron without collecting balls (for testing). `/shenron-kinto stop` sends him away. |
 
 ## Event configuration
