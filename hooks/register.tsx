@@ -752,7 +752,7 @@ const applyPlanState = async ($: EngineInterface, before: readonly string[], aft
   const wasAll = before.length > 0 && was === before.length
 
   if (now > was && !isAll) {
-    await react($, 'ball', `${now}/${after.length}`)
+    await react($, 'ball', `${visible}/7`)
   }
 
   if (isAll && !wasAll) {
