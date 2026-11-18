@@ -111,7 +111,7 @@ In-app texts are available in English (default) and Polish. Set the `language` o
 
 ## Animations
 
-All motion is CSS and respects the system "Reduce motion" accessibility setting: when it is on (common on macOS), every animation freezes. Either turn that setting off, or set the plugin option `motion` to `always` to animate regardless.
+All motion is CSS and respects the system "Reduce motion" accessibility setting: when it is on (common on macOS), every animation freezes. Either turn that setting off, or set the plugin option `motion` to `always` to animate regardless. If animations still stand still (reported on macOS desktop), set `frame` to `sandbox`: the backdrop is then drawn in a sandboxed frame instead of as an image.
 
 All sounds were generated locally in ComfyUI (effects: Stable Audio Open, Shenron theme: ACE-Step 1.5) and lightly processed (filter, saturation, short reverb). They use nobody's recordings. Stable Audio Open has its own licence (Stability AI Community License): commercial use requires registration with Stability AI above the revenue thresholds it sets.
 

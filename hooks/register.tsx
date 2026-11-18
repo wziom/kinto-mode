@@ -384,6 +384,8 @@ const GOKU_SSJ = (() => {
 const RM_REGULA =
   '@media (prefers-reduced-motion:reduce){.gk,.fl,.kf,.st,.sh,.sb,.sg,.sr,.fg,.kp,.kl,.kz,.kw,.kr,.ss,.ssb{animation:none!important}}'
 let ruchZawsze = false
+// Opcja frame=sandbox rysuje tło w ramce zamiast jako obraz (Svg isInteractive); na macOS bywa, że obraz nie animuje.
+let ramka = false
 
 const STYLE =
   '<style>' +
@@ -696,6 +698,7 @@ export const register: Register = (on, options) => {
   }
   jezykOpcja = options.language === 'pl' ? 'pl' : 'en'
   ruchZawsze = options.motion === 'always'
+  ramka = options.frame === 'sandbox'
 
   on('session.start', async ($, e, next) => {
     const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
@@ -1017,7 +1020,7 @@ export const register: Register = (on, options) => {
       ssj: (await read($, percent)) >= (await progi($)).ssj || (await read($, ssjTest)),
     })
 
-    return <Svg source={source} alt={(await tx($)).alt} />
+    return <Svg source={source} alt={(await tx($)).alt} isInteractive={ramka} />
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

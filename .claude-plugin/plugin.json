@@ -1,10 +1,11 @@
 {
   "name": "goku",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Dragon Ball orange theme for Claude: light and dark, mountain backdrop, Goku on the Flying Nimbus, power level from context usage, Dragon Balls and Shenron.",
   "license": "MIT",
   "types": "./types/index.d.ts",
   "userConfig": {
+    "frame": { "type": "string", "title": "Backdrop rendering", "description": "image = draw the backdrop as an image (default); sandbox = draw it in a sandboxed frame. Try sandbox if animations stand still (for example on macOS).", "default": "image", "options": ["image", "sandbox"] },
     "motion": { "type": "string", "title": "Animations", "description": "system = respect the operating system's Reduce motion setting (animations freeze when it is on); always = animate regardless.", "default": "system", "options": ["system", "always"] },
     "language": { "type": "string", "title": "Language", "description": "Language of in-app texts (toasts, captions, bar, command replies).", "default": "en", "options": ["en", "pl"] },
     "prog1": { "type": "number", "title": "Power level 1 threshold (%)", "description": "First power level (sound, toast, bar flash).", "default": 25, "min": 1, "max": 100 },

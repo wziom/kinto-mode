@@ -43,13 +43,14 @@ Answer in the user's language. Present the sections below as a compact, scannabl
 | `language` | `en` or `pl`: language of toasts, captions, the bar and command replies. | `en` |
 | `prog1`-`prog4` | The four power level thresholds (%). | 25, 50, 75, 90 |
 | `progSsj` | Context usage (%) at which Super Saiyan starts. | 50 |
+| `frame` | `image` (default) or `sandbox`: how the backdrop is drawn. Try `sandbox` if animations stand still (reported on macOS desktop). | `image` |
 | `motion` | `system` respects the OS "Reduce motion" setting (animations freeze when it is on); `always` animates regardless. | `system` |
 
 Session commands override these until the session ends.
 
 ## Good to know
 
-- **Animations frozen (for example on a Mac):** usually the system "Reduce motion" setting. Set the plugin option `motion` to `always`, or turn Reduce motion off in System Settings > Accessibility > Display.
+- **Animations frozen (for example on a Mac):** usually the system "Reduce motion" setting. Set the plugin option `motion` to `always`, try `frame` = `sandbox`, or turn Reduce motion off in System Settings > Accessibility > Display.
 - **Sound:** plays through the system player available on macOS; on Windows and Linux it may stay silent. Toasts always work.
 - **Dragon Balls** are counted from the desktop app's task list; other clients may not light them up.
 - The backdrop SVG is near the engine's size limit, so the scene is a painterly mosaic, not a photograph.
