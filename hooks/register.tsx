@@ -406,6 +406,9 @@ const GOKU_SSJ = (() => {
   return (
     GOKU_PATHS.replace(layer, '') +
     `<clipPath id="pas"><rect x="0" y="50" width="200" height="120"/></clipPath><g clip-path="url(#pas)">${layer}</g>` +
+    // the black hair layer also covered the back of the head; without it the head is transparent under the ComfyUI hair outline,
+    // so put a hair-coloured mass (same yellow and dark gold outline as the hair art) under the new hair
+    `<path fill="#ffff67" stroke="#B88400" stroke-width="1.5" stroke-linejoin="round" d="M76 44L81 37L104 35L109 40L106 46L96 50L84 49Z"/>` +
     `<g transform="translate(114 10) scale(-0.27 0.27)">${SSJ_HAIR_PATHS}</g>`
   )
 })()
