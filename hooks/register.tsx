@@ -1057,10 +1057,20 @@ export const register: Register = (on, options) => {
     // Right after a compaction the app may fire a measurement before any model response: the 'summary'
     // estimate would show only the summary (~3%), so use the full breakdown and keep the flag until
     // turn.step brings the real fill.
-    const raw = (await measurePower($, isCompactPending ? 'full' : 'summary')) ?? e.context.percent
+    let raw = (await measurePower($, isCompactPending ? 'full' : 'summary')) ?? e.context.percent
+    let isQuiet = isCompactPending
+
+    // The desktop app may compact without session.compact reaching this plugin; the only trace is a sudden
+    // drop of the cheap estimate (which undercounts right after a compaction). Confirm it with the full
+    // breakdown, as the app does, and treat it as a compaction until the next model response.
+    if (raw !== undefined && !isCompactPending && raw < (await read($, percent)) - 2) {
+      raw = (await measurePower($, 'full')) ?? raw
+      isCompactPending = true
+      isQuiet = true
+    }
 
     if (raw !== undefined) {
-      await applyPower($, raw, isCompactPending)
+      await applyPower($, raw, isQuiet)
     }
 
     return next(e)
