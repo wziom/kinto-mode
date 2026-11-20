@@ -817,17 +817,22 @@ const applyPower = async ($: EngineInterface, raw: number, isQuiet = false): Pro
   $.ui.status(`${(await tx($)).power} ${power(pct)}`)
 }
 
-// After a compaction the engine may still report the old fill for a moment: retry a few times.
+// After a compaction the engine's figures settle only gradually (the first reading may be the old
+// fill, or only the summary without the system prompt and tools): measure again a few times and
+// follow the measurement in both directions until two readings in a row agree.
 const RECHECK_MS = 1500
-const RECHECK_TRIES = 3
-const recheckAfterCompact = ($: EngineInterface, before: number, attempt = 1): void => {
+const RECHECK_TRIES = 4
+const recheckAfterCompact = ($: EngineInterface, last?: number, attempt = 1): void => {
   $.clock.after(RECHECK_MS, async () => {
     const p = await measurePower($)
+    const isStable = p !== undefined && last !== undefined && Math.round(p) === Math.round(last)
 
-    if (p !== undefined && p < before) {
+    if (p !== undefined && Math.round(p) !== (await read($, percent))) {
       await applyPower($, p, true)
-    } else if (attempt < RECHECK_TRIES) {
-      recheckAfterCompact($, before, attempt + 1)
+    }
+
+    if (!isStable && attempt < RECHECK_TRIES) {
+      recheckAfterCompact($, p ?? last, attempt + 1)
     }
   })
 }
@@ -1108,24 +1113,16 @@ export const register: Register = (on, options) => {
     // would keep the old value. After a successful compaction we recompute the power right away.
     if (result && 'messages' in result && result.messages) {
       const prev = await read($, percent)
-      let pct: number | undefined
       const p = await measurePower($)
 
-      // The breakdown may still return the pre-compaction state: then we use the token counts.
+      // Token counts of the result (tokensAfter) leave out the system prompt and tools, so they
+      // understate the fill (3% instead of 16%): only the breakdown is trusted, never an estimate.
       if (p !== undefined && p < prev) {
-        pct = p
-      } else if (result.tokensAfter !== undefined && compactWindow) {
-        pct = (result.tokensAfter / compactWindow) * 100
-      } else if (result.tokensBefore && result.tokensAfter !== undefined) {
-        pct = prev * (result.tokensAfter / result.tokensBefore)
+        await applyPower($, p, true)
       }
 
-      if (pct !== undefined) {
-        await applyPower($, pct, true)
-      } else {
-        // No figure yet: measure again shortly instead of waiting for the next turn.
-        recheckAfterCompact($, prev)
-      }
+      // The first reading can still be partial or stale: follow the measurement until it settles.
+      recheckAfterCompact($, p)
 
       await react($, 'compact')
     }
