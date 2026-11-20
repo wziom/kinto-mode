@@ -768,6 +768,70 @@ const applyPlanState = async ($: EngineInterface, before: readonly string[], aft
   }
 }
 
+// ---------------------------------------------------------------------------
+// Power from context usage.
+// ---------------------------------------------------------------------------
+// The compaction window (breakdown.rawMaxTokens) from the last full measurement. Lets a turn step
+// turn the tokens of a response into a percentage without asking for the costly breakdown each time.
+let compactWindow: number | undefined
+
+// Context usage relative to the compaction window, the same figure the app shows; caches the window.
+const measurePower = async ($: EngineInterface): Promise<number | undefined> => {
+  try {
+    const breakdown = (await $.session.usage({ breakdown: 'summary' })).context.breakdown
+
+    if (breakdown) {
+      compactWindow = breakdown.rawMaxTokens
+
+      return breakdown.percentage
+    }
+  } catch {
+    // no measurement available
+  }
+
+  return undefined
+}
+
+// Sets the power and everything that follows from it. `isQuiet`: a drop (compaction) is not
+// announced, it only lowers the level without a sound or flash.
+const applyPower = async ($: EngineInterface, raw: number, isQuiet = false): Promise<void> => {
+  const pct = Math.round(raw)
+  const prev = await read($, level)
+  const prevPct = await read($, percent)
+  const cfg = await getThresholds($)
+  const lv = levelFrom(pct, cfg.p)
+  await update($, percent, () => pct)
+
+  if (!isQuiet && lv > prev) {
+    await react($, 'level', power(pct))
+    flashPower($)
+  }
+
+  if (!isQuiet && pct >= cfg.ssj && prevPct < cfg.ssj) {
+    $.ui.toast((await tx($)).ssjToast(cfg.ssj))
+  }
+
+  if (lv !== prev) {
+    await update($, level, () => lv)
+  }
+  $.ui.status(`${(await tx($)).power} ${power(pct)}`)
+}
+
+// After a compaction the engine may still report the old fill for a moment: retry a few times.
+const RECHECK_MS = 1500
+const RECHECK_TRIES = 3
+const recheckAfterCompact = ($: EngineInterface, before: number, attempt = 1): void => {
+  $.clock.after(RECHECK_MS, async () => {
+    const p = await measurePower($)
+
+    if (p !== undefined && p < before) {
+      await applyPower($, p, true)
+    } else if (attempt < RECHECK_TRIES) {
+      recheckAfterCompact($, before, attempt + 1)
+    }
+  })
+}
+
 export const register: Register = (on, options) => {
   settings = {
     p1: clampPct(options.threshold1, DEFAULTS.p1),
@@ -998,71 +1062,69 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     // e.context.percent is relative to the whole model window (e.g. 1M), while the app shows
     // usage relative to the compaction window (e.g. 500k). We take the same as the app: the breakdown.
-    let raw = e.context.percent
-
-    try {
-      const usage = await $.session.usage({ breakdown: 'summary' })
-      raw = usage.context.breakdown?.percentage ?? raw
-    } catch {
-      // keep the percentage from the measurement
-    }
+    const raw = (await measurePower($)) ?? e.context.percent
 
     if (raw !== undefined) {
-      const pct = Math.round(raw)
-      const prev = await read($, level)
-      const prevPct = await read($, percent)
-      const cfg = await getThresholds($)
-      const lv = levelFrom(pct, cfg.p)
-      await update($, percent, () => pct)
-
-      if (lv > prev) {
-        await react($, 'level', power(pct))
-        flashPower($)
-      }
-
-      if (pct >= cfg.ssj && prevPct < cfg.ssj) {
-        $.ui.toast((await tx($)).ssjToast(cfg.ssj))
-      }
-
-      if (lv !== prev) {
-        await update($, level, () => lv)
-      }
-      $.ui.status(`${(await tx($)).power} ${power(pct)}`)
+      await applyPower($, raw)
     }
 
     return next(e)
   })
 
+  // session.measure arrives only after a whole turn, so during a long task the power would stand
+  // still. After each model response of the main thread we estimate it from the response's tokens.
+  // Only upwards: the estimate and the breakdown differ slightly, and the end-of-turn measurement corrects it.
+  on('turn.step', async function* ($, e, next) {
+    const result = yield* next(e)
+
+    if (e.agentId === undefined && result.usage) {
+      if (compactWindow === undefined) {
+        await measurePower($)
+      }
+
+      if (compactWindow) {
+        const u = result.usage
+        const tokens = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens
+        const pct = (tokens / compactWindow) * 100
+
+        if (Math.round(pct) > (await read($, percent))) {
+          await applyPower($, pct)
+        }
+      }
+    }
+
+    return result
+  })
+
   on('session.compact', async ($, e, next) => {
     const result = await next(e)
+
+    // A precompute only prepares a summary for a later compaction: the conversation is unchanged.
+    if (e.trigger === 'precompute') {
+      return result
+    }
 
     // The measurement (session.measure) only arrives on the next turn, so the bar
     // would keep the old value. After a successful compaction we recompute the power right away.
     if (result && 'messages' in result && result.messages) {
       const prev = await read($, percent)
       let pct: number | undefined
+      const p = await measurePower($)
 
-      try {
-        const usage = await $.session.usage({ breakdown: 'summary' })
-        const p = usage.context.breakdown?.percentage
-
-        // Plain usage may still return the pre-compaction state: then we compute from the proportion.
-        if (p !== undefined && p < prev) {
-          pct = Math.round(p)
-        }
-      } catch {
-        // keep the estimate
-      }
-
-      if (pct === undefined && result.tokensBefore && result.tokensAfter !== undefined) {
-        pct = Math.round(prev * (result.tokensAfter / result.tokensBefore))
+      // The breakdown may still return the pre-compaction state: then we use the token counts.
+      if (p !== undefined && p < prev) {
+        pct = p
+      } else if (result.tokensAfter !== undefined && compactWindow) {
+        pct = (result.tokensAfter / compactWindow) * 100
+      } else if (result.tokensBefore && result.tokensAfter !== undefined) {
+        pct = prev * (result.tokensAfter / result.tokensBefore)
       }
 
       if (pct !== undefined) {
-        const lv = levelFrom(pct, (await getThresholds($)).p)
-        await update($, percent, () => pct as number)
-        await update($, level, () => lv)
-        $.ui.status(`${(await tx($)).power} ${power(pct)}`)
+        await applyPower($, pct, true)
+      } else {
+        // No figure yet: measure again shortly instead of waiting for the next turn.
+        recheckAfterCompact($, prev)
       }
 
       await react($, 'compact')
