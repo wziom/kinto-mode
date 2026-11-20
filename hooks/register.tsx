@@ -776,9 +776,13 @@ const applyPlanState = async ($: EngineInterface, before: readonly string[], aft
 let compactWindow: number | undefined
 
 // Context usage relative to the compaction window, the same figure the app shows; caches the window.
-const measurePower = async ($: EngineInterface): Promise<number | undefined> => {
+// `detail: 'full'` counts with the token-count API like /context does (the app's figure after a compaction).
+const measurePower = async (
+  $: EngineInterface,
+  detail: 'summary' | 'full' = 'summary',
+): Promise<number | undefined> => {
   try {
-    const breakdown = (await $.session.usage({ breakdown: 'summary' })).context.breakdown
+    const breakdown = (await $.session.usage({ breakdown: detail })).context.breakdown
 
     if (breakdown) {
       compactWindow = breakdown.rawMaxTokens
@@ -817,25 +821,8 @@ const applyPower = async ($: EngineInterface, raw: number, isQuiet = false): Pro
   $.ui.status(`${(await tx($)).power} ${power(pct)}`)
 }
 
-// After a compaction the engine's figures settle only gradually (the first reading may be the old
-// fill, or only the summary without the system prompt and tools): measure again a few times and
-// follow the measurement in both directions until two readings in a row agree.
-const RECHECK_MS = 1500
-const RECHECK_TRIES = 4
-const recheckAfterCompact = ($: EngineInterface, last?: number, attempt = 1): void => {
-  $.clock.after(RECHECK_MS, async () => {
-    const p = await measurePower($)
-    const isStable = p !== undefined && last !== undefined && Math.round(p) === Math.round(last)
-
-    if (p !== undefined && Math.round(p) !== (await read($, percent))) {
-      await applyPower($, p, true)
-    }
-
-    if (!isStable && attempt < RECHECK_TRIES) {
-      recheckAfterCompact($, p ?? last, attempt + 1)
-    }
-  })
-}
+// True between a compaction and the first trustworthy reading of the context fill.
+let isCompactPending = false
 
 export const register: Register = (on, options) => {
   settings = {
@@ -1069,6 +1056,8 @@ export const register: Register = (on, options) => {
     // usage relative to the compaction window (e.g. 500k). We take the same as the app: the breakdown.
     const raw = (await measurePower($)) ?? e.context.percent
 
+    isCompactPending = false
+
     if (raw !== undefined) {
       await applyPower($, raw)
     }
@@ -1092,7 +1081,11 @@ export const register: Register = (on, options) => {
         const tokens = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens
         const pct = (tokens / compactWindow) * 100
 
-        if (Math.round(pct) > (await read($, percent))) {
+        // The first response after a compaction carries the real fill: follow it in both directions.
+        if (isCompactPending) {
+          isCompactPending = false
+          await applyPower($, pct, true)
+        } else if (Math.round(pct) > (await read($, percent))) {
           await applyPower($, pct)
         }
       }
@@ -1112,19 +1105,18 @@ export const register: Register = (on, options) => {
     // The measurement (session.measure) only arrives on the next turn, so the bar
     // would keep the old value. After a successful compaction we recompute the power right away.
     if (result && 'messages' in result && result.messages) {
-      const prev = await read($, percent)
-      const p = await measurePower($)
-
-      // Token counts of the result (tokensAfter) leave out the system prompt and tools, so they
-      // understate the fill (3% instead of 16%): only the breakdown is trusted, never an estimate.
-      if (p !== undefined && p < prev) {
-        await applyPower($, p, true)
-      }
-
-      // The first reading can still be partial or stale: follow the measurement until it settles.
-      recheckAfterCompact($, p)
+      // The 'summary' breakdown and tokensAfter showed only the summary (~3% instead of ~15%). The app
+      // gets the right figure from the full breakdown (token-count API, as /context), so use it here.
+      // The pending flag stays on: the first model response of the next turn still corrects it either way.
+      isCompactPending = true
 
       await react($, 'compact')
+
+      const raw = await measurePower($, 'full')
+
+      if (raw !== undefined) {
+        await applyPower($, raw, true)
+      }
     }
 
     return result
