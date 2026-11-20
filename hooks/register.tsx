@@ -1054,12 +1054,13 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     // e.context.percent is relative to the whole model window (e.g. 1M), while the app shows
     // usage relative to the compaction window (e.g. 500k). We take the same as the app: the breakdown.
-    const raw = (await measurePower($)) ?? e.context.percent
-
-    isCompactPending = false
+    // Right after a compaction the app may fire a measurement before any model response: the 'summary'
+    // estimate would show only the summary (~3%), so use the full breakdown and keep the flag until
+    // turn.step brings the real fill.
+    const raw = (await measurePower($, isCompactPending ? 'full' : 'summary')) ?? e.context.percent
 
     if (raw !== undefined) {
-      await applyPower($, raw)
+      await applyPower($, raw, isCompactPending)
     }
 
     return next(e)
