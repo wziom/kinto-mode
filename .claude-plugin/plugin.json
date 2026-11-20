@@ -1,6 +1,6 @@
 {
   "name": "goku",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Dragon Ball orange theme for Claude: light and dark, mountain backdrop, Goku on the Flying Nimbus, power level from context usage, Dragon Balls and Shenron.",
   "license": "MIT",
   "types": "./types/index.d.ts",
